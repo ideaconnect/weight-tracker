@@ -146,7 +146,7 @@ fun WidgetsScreen(
             BigWidgetPreview(state.entries, stats, unit)
         }
         WidgetSection(WidgetKind.GLANCE, locked, onTapWidget) {
-            GlanceWidgetPreview(stats, unit, Modifier.width(250.dp))
+            GlanceWidgetPreview(stats, unit)
         }
 
         Spacer(Modifier.height(4.dp))

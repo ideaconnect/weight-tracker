@@ -312,34 +312,39 @@ fun ChartWidgetPreview(
     modifier: Modifier = Modifier,
 ) {
     val colors = WtTheme.colors
-    WidgetSurface(modifier.fillMaxWidth().height(110.dp)) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Sparkline(
-                entries = entries,
-                stats = stats,
-                modifier = Modifier.weight(1f).height(70.dp),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    // Laid out the way a 4x2 cell on a phone actually renders it: figures across the
+    // top, the chart taking the rest of the width and height.
+    WidgetSurface(modifier.fillMaxWidth().height(150.dp)) {
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 Text(
                     Units.format(stats.currentKg, unit),
                     style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.4).sp),
                     color = colors.onSurface,
                 )
-                Text(
-                    "${Format.weekChange(stats, unit)} / 7d",
-                    style = TextStyle(fontSize = 11.sp),
-                    color = WtTheme.accent,
-                )
-                Text(
-                    "${Units.format(stats.targetKg, unit)} goal",
-                    style = TextStyle(fontFamily = RobotoMono, fontSize = 10.5.sp),
-                    color = colors.muted,
-                )
+                Spacer(Modifier.width(6.dp))
+                Text(unit.label, style = TextStyle(fontSize = 11.sp), color = colors.muted)
+                Spacer(Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "${Format.weekChange(stats, unit)} / 7d",
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium),
+                        color = WtTheme.accent,
+                    )
+                    Text(
+                        "${Units.format(stats.targetKg, unit)} goal",
+                        style = TextStyle(fontFamily = RobotoMono, fontSize = 10.5.sp),
+                        color = colors.muted,
+                    )
+                }
             }
+            Spacer(Modifier.height(8.dp))
+            Sparkline(
+                entries = entries,
+                stats = stats,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                axes = unit,
+            )
         }
     }
 }
@@ -434,15 +439,16 @@ fun GlanceWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier =
     val shape = RoundedCornerShape(18.dp)
     Row(
         modifier = modifier
+            .fillMaxWidth()
             .height(64.dp)
             .clip(shape)
             .background(colors.surface)
             .border(WtDimens.hairline, colors.outline, shape)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ProgressRing(stats.progress, diameter = 34.dp, stroke = 4.dp)
+        ProgressRing(stats.progress, diameter = 40.dp, stroke = 4.5.dp)
+        Spacer(Modifier.width(12.dp))
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 Units.formatWithUnit(stats.currentKg, unit),
@@ -450,10 +456,16 @@ fun GlanceWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier =
                 color = colors.onSurface,
             )
             Text(
-                "${Units.formatWithUnit(stats.leftKg, unit)} left · ${Format.percent(stats)}",
+                "${Units.formatWithUnit(stats.leftKg, unit)} left",
                 style = TextStyle(fontSize = 11.5.sp),
                 color = colors.muted,
             )
         }
+        Spacer(Modifier.weight(1f))
+        Text(
+            Format.percent(stats),
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+            color = WtTheme.accent,
+        )
     }
 }

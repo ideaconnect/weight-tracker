@@ -400,9 +400,11 @@ class ChartWidget : BaseWeightWidget() {
         val stacked = c.height > c.width * 0.4f
 
         if (stacked) {
+            // Both figures sit in the header, so the whole area below belongs to the
+            // chart. A separate footer row plus the axis date strip left the plot
+            // barely 50 dp tall and flattened the line.
             val headerH = bigSp * 1.35f
-            val footerH = smallSp * 1.4f
-            val chartH = (c.height - headerH - footerH - gap * 2f).coerceAtLeast(40f)
+            val chartH = (c.height - headerH - gap).coerceAtLeast(72f)
             Column(modifier = GlanceModifier.fillMaxSize()) {
                 Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                     Text(
@@ -422,14 +424,23 @@ class ChartWidget : BaseWeightWidget() {
                         ),
                     )
                     Spacer(GlanceModifier.defaultWeight())
-                    Text(
-                        weekChangeLabel(stats, data) + " / 7d",
-                        style = TextStyle(
-                            color = ColorProvider(Color(palette.accent)),
-                            fontSize = smallSp.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                    )
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            weekChangeLabel(stats, data) + " / 7d",
+                            style = TextStyle(
+                                color = ColorProvider(Color(palette.accent)),
+                                fontSize = smallSp.sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
+                        )
+                        Text(
+                            Units.format(stats.targetKg, data.unit) + " goal",
+                            style = TextStyle(
+                                color = ColorProvider(Color(palette.muted)),
+                                fontSize = smallSp.sp,
+                            ),
+                        )
+                    }
                 }
                 Spacer(GlanceModifier.height(gap.dp))
                 Image(
@@ -441,22 +452,19 @@ class ChartWidget : BaseWeightWidget() {
                             stats = stats,
                             palette = palette,
                             density = density,
+                            // Fewer ticks than the 4x4, but a line with no scale beside
+                            // it is just a squiggle.
+                            axes = WidgetPainter.Axes(
+                                data.unit,
+                                textSp = c.text(8.5f),
+                                ticks = 3,
+                                dates = 3,
+                            ),
                         )
                     ),
                     contentDescription = null,
                     modifier = GlanceModifier.fillMaxWidth().height(chartH.dp),
                 )
-                Spacer(GlanceModifier.height(gap.dp))
-                Row(modifier = GlanceModifier.fillMaxWidth()) {
-                    Spacer(GlanceModifier.defaultWeight())
-                    Text(
-                        Units.format(stats.targetKg, data.unit) + " goal",
-                        style = TextStyle(
-                            color = ColorProvider(Color(palette.muted)),
-                            fontSize = smallSp.sp,
-                        ),
-                    )
-                }
             }
         } else {
             val figuresW = (c.width * 0.3f).coerceIn(96f, 160f)
@@ -472,6 +480,9 @@ class ChartWidget : BaseWeightWidget() {
                             stats = stats,
                             palette = palette,
                             density = density,
+                            axes = if (chartW >= 150f && chartH >= 60f) {
+                                WidgetPainter.Axes(data.unit, textSp = c.text(8.5f), ticks = 3, dates = 2)
+                            } else null,
                         )
                     ),
                     contentDescription = null,
@@ -635,9 +646,10 @@ class GlanceWidget : BaseWeightWidget() {
         val density = LocalContext.current.resources.displayMetrics.density
         val c = cell(designContentHeightDp = 36f)
 
-        // Kept close to the design's 34 dp. Letting it grow with the cell made the
-        // ring dominate a strip whose whole job is one line of text.
         val diameter = c.height.coerceIn(28f, 46f)
+        // The figures are pushed to the two ends rather than bunched against the ring,
+        // so the strip reads as deliberate at whatever width the launcher gives it
+        // instead of trailing off into empty space on the right.
         Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 provider = ImageProvider(
@@ -651,7 +663,7 @@ class GlanceWidget : BaseWeightWidget() {
                 contentDescription = null,
                 modifier = GlanceModifier.size(diameter.dp),
             )
-            Spacer(GlanceModifier.width(14.dp))
+            Spacer(GlanceModifier.width(12.dp))
             Column {
                 Text(
                     Units.formatWithUnit(stats.currentKg, data.unit),
@@ -662,13 +674,22 @@ class GlanceWidget : BaseWeightWidget() {
                     ),
                 )
                 Text(
-                    remainingLabel(stats, data) + " \u00b7 " + pctLabel(stats),
+                    remainingLabel(stats, data),
                     style = TextStyle(
                         color = ColorProvider(Color(palette.muted)),
                         fontSize = c.text(11.5f).sp,
                     ),
                 )
             }
+            Spacer(GlanceModifier.defaultWeight())
+            Text(
+                pctLabel(stats),
+                style = TextStyle(
+                    color = ColorProvider(Color(palette.accent)),
+                    fontSize = c.text(15f).sp,
+                    fontWeight = FontWeight.Medium,
+                ),
+            )
         }
     }
 }
