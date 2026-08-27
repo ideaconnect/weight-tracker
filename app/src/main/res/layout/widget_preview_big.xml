@@ -7,15 +7,15 @@
     android:padding="14dp"
     android:background="@drawable/widget_preview_bg">
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="79.2 kg" android:textSize="26sp" android:textColor="#F3F3F3"
+        android:text="79.2 kg" android:textSize="26sp" android:textColor="@color/widget_preview_on_surface"
         android:textStyle="bold" android:layout_marginTop="0dp" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="−0.4 vs plan" android:textSize="13sp" android:textColor="#4FC97F"
+        android:text="−0.4 vs plan" android:textSize="13sp" android:textColor="@color/widget_preview_accent"
         android:textStyle="normal" android:layout_marginTop="8dp" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="4.2 kg left · 0.04 / day" android:textSize="11sp" android:textColor="#8B8B8B"
+        android:text="4.2 kg left · 0.04 / day" android:textSize="11sp" android:textColor="@color/widget_preview_muted"
         android:textStyle="normal" android:layout_marginTop="8dp" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="On pace: 11-10" android:textSize="11sp" android:textColor="#8B8B8B"
+        android:text="On pace: 11-10" android:textSize="11sp" android:textColor="@color/widget_preview_muted"
         android:textStyle="normal" android:layout_marginTop="4dp" />
 </LinearLayout>

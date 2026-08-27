@@ -7,12 +7,12 @@
     android:padding="14dp"
     android:background="@drawable/widget_preview_bg">
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="79.2 kg" android:textSize="22sp" android:textColor="#F3F3F3"
+        android:text="79.2 kg" android:textSize="22sp" android:textColor="@color/widget_preview_on_surface"
         android:textStyle="bold" android:layout_marginTop="0dp" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="43% of plan" android:textSize="12sp" android:textColor="#4FC97F"
+        android:text="43% of plan" android:textSize="12sp" android:textColor="@color/widget_preview_accent"
         android:textStyle="normal" android:layout_marginTop="6dp" />
     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="82.4 → 75.0 kg" android:textSize="11sp" android:textColor="#8B8B8B"
+        android:text="82.4 → 75.0 kg" android:textSize="11sp" android:textColor="@color/widget_preview_muted"
         android:textStyle="normal" android:layout_marginTop="6dp" />
 </LinearLayout>

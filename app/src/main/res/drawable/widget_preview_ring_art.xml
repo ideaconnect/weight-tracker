@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The 43% ring the 2x2 widget actually draws, so the picker tile matches it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="88dp" android:height="88dp"
+    android:viewportWidth="88" android:viewportHeight="88">
+    <path
+        android:pathData="M8,44 a36,36 0 1,0 72,0 a36,36 0 1,0 -72,0"
+        android:strokeColor="@color/widget_preview_track"
+        android:strokeWidth="7" />
+    <path
+        android:pathData="M44,8 A36,36 0 0,1 59.33,76.57"
+        android:strokeColor="@color/widget_preview_accent"
+        android:strokeWidth="7"
+        android:strokeLineCap="round" />
+</vector>

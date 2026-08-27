@@ -2,4 +2,17 @@
 <resources>
     <color name="window_background">#FFFFFFFF</color>
     <color name="ic_launcher_background">#FF000000</color>
+
+    <!--
+        The widget-picker preview layouts are plain RemoteViews, so they cannot read
+        the app's own theme. These mirror the light half of WidgetPalette and are
+        overridden in values-night, so a tile at least follows the system theme
+        instead of always rendering dark.
+    -->
+    <color name="widget_preview_bg">#FFFAFAFA</color>
+    <color name="widget_preview_outline">#FFE4E4E4</color>
+    <color name="widget_preview_on_surface">#FF121212</color>
+    <color name="widget_preview_muted">#FF6B6B6B</color>
+    <color name="widget_preview_accent">#FF2E9A5E</color>
+    <color name="widget_preview_track">#FFF2F2F2</color>
 </resources>

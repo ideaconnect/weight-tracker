@@ -70,9 +70,14 @@ object WidgetPainter {
         )
         val xMax = max(span, lastDay).toFloat()
 
+        // Only entries inside the drawn window own the vertical scale. History from
+        // before the plan started maps to a negative x and is clipped away, so
+        // letting it widen the range would squash the visible line to nothing.
+        val plotted = entries.filter { PlanMath.dayIndex(plan.startDate, it.date) >= 0 }
+
         var lo = min(plan.targetKg, plan.startKg) - 0.8f
         var hi = max(plan.targetKg, plan.startKg) + 0.5f
-        entries.forEach {
+        plotted.forEach {
             lo = min(lo, it.kg - 0.3f)
             hi = max(hi, it.kg + 0.3f)
         }
@@ -110,9 +115,9 @@ object WidgetPainter {
             canvas.drawLine(x(0f), y(plan.targetKg), x(xMax), y(plan.targetKg), planPaint)
         }
 
-        if (entries.size >= 2) {
+        if (plotted.size >= 2) {
             val path = Path()
-            entries.forEachIndexed { index, entry ->
+            plotted.forEachIndexed { index, entry ->
                 val day = PlanMath.dayIndex(plan.startDate, entry.date).toFloat()
                 if (index == 0) path.moveTo(x(day), y(entry.kg)) else path.lineTo(x(day), y(entry.kg))
             }
@@ -128,7 +133,7 @@ object WidgetPainter {
             )
         }
 
-        entries.lastOrNull()?.let { last ->
+        plotted.lastOrNull()?.let { last ->
             val day = PlanMath.dayIndex(plan.startDate, last.date).toFloat()
             canvas.drawCircle(
                 x(day),

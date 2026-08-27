@@ -111,9 +111,13 @@ fun Sparkline(
         )
         val xMax = max(span, lastDay).toFloat().coerceAtLeast(1f)
 
+        // Same windowing as WidgetPainter: pre-plan history is clipped away, so it
+        // must not widen the vertical range either.
+        val plotted = entries.filter { PlanMath.dayIndex(plan.startDate, it.date) >= 0 }
+
         var lo = min(plan.targetKg, plan.startKg) - 0.8f
         var hi = max(plan.targetKg, plan.startKg) + 0.5f
-        entries.forEach {
+        plotted.forEach {
             lo = min(lo, it.kg - 0.3f)
             hi = max(hi, it.kg + 0.3f)
         }
@@ -151,9 +155,9 @@ fun Sparkline(
             )
         }
 
-        if (entries.size >= 2) {
+        if (plotted.size >= 2) {
             val path = Path()
-            entries.forEachIndexed { index, entry ->
+            plotted.forEachIndexed { index, entry ->
                 val day = PlanMath.dayIndex(plan.startDate, entry.date).toFloat()
                 if (index == 0) path.moveTo(x(day), y(entry.kg)) else path.lineTo(x(day), y(entry.kg))
             }
@@ -163,7 +167,7 @@ fun Sparkline(
                 style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
         }
-        entries.lastOrNull()?.let { last ->
+        plotted.lastOrNull()?.let { last ->
             val day = PlanMath.dayIndex(plan.startDate, last.date).toFloat()
             drawCircle(accent, radius = 3.dp.toPx(), center = Offset(x(day), y(last.kg)))
         }

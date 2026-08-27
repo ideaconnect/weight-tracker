@@ -47,6 +47,9 @@ import kotlin.math.roundToInt
 
 private val isoShort: DateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd")
 
+/** Inset applied by [BaseWeightWidget] to every widget's content. */
+private val WIDGET_PADDING = 14.dp
+
 /** Route the launcher tap: unlocked widgets open the app, locked ones the paywall. */
 private fun launchIntent(context: Context, locked: Boolean): Intent =
     Intent(context, MainActivity::class.java).apply {
@@ -82,7 +85,7 @@ abstract class BaseWeightWidget : GlanceAppWidget() {
                         .background(Color(palette.background))
                         .cornerRadius(24.dp)
                         .clickable(actionStartActivity(launchIntent(context, !data.unlocked)))
-                        .padding(14.dp),
+                        .padding(WIDGET_PADDING),
                     contentAlignment = Alignment.Center,
                 ) {
                     when {
@@ -151,15 +154,17 @@ private fun ProgressTrack(progress: Float, palette: WidgetPalette, height: Int =
             .cornerRadius((height / 2).dp)
             .background(Color(palette.surfaceAlt)),
     ) {
-        // Glance has no fractional width, so the fill is drawn as a one-pixel bitmap
-        // stretched to the right proportion of the track.
-        val context = LocalContext.current
-        val widthPx = (LocalSize.current.width.value * context.resources.displayMetrics.density).roundToInt()
-        val fill = (widthPx * progress.coerceIn(0f, 1f)).roundToInt()
-        if (fill > 0) {
+        // Glance has no fractional width, so the fill is an explicitly sized child.
+        // It must be measured against the TRACK, which sits inside the root Box's
+        // padding and is therefore two paddings narrower than the widget itself —
+        // measuring against the full width overstates progress and saturates the
+        // bar at around 90%.
+        val trackDp = (LocalSize.current.width.value - WIDGET_PADDING.value * 2f).coerceAtLeast(0f)
+        val fillDp = trackDp * progress.coerceIn(0f, 1f)
+        if (fillDp > 0.5f) {
             Box(
                 modifier = GlanceModifier
-                    .width((fill / context.resources.displayMetrics.density).dp)
+                    .width(fillDp.dp)
                     .height(height.dp)
                     .cornerRadius((height / 2).dp)
                     .background(Color(palette.accent))
