@@ -249,8 +249,9 @@ fun PlacementScreen(
 
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             RingWidgetPreview(stats, unit)
+            // Matched to the ring's height so the sparkline tile has room to take.
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(168.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Box(

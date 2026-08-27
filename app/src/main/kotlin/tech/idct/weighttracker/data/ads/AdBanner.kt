@@ -44,11 +44,12 @@ fun AdBanner(modifier: Modifier = Modifier) {
             AdView(context).apply {
                 setAdSize(AdSize.BANNER)
                 adUnitId = Ads.BANNER_UNIT_ID
-                // Section 10 asks for a 320x50 banner exactly, so the view is left to
-                // its natural size rather than stretched to the container.
+                // Section 10 asks for a 320x50 banner exactly. The AdView is filled to
+                // the 320x50 box the composable reserves; letting it size itself lets
+                // the fill widen to a 468x60 creative.
                 layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
                 )
                 runCatching { loadAd(AdRequest.Builder().build()) }
                     .onFailure { Log.w("Ads", "Banner request failed", it) }
