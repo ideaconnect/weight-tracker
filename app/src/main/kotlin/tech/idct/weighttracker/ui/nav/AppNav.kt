@@ -2,11 +2,13 @@ package tech.idct.weighttracker.ui.nav
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -51,8 +53,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -163,11 +167,15 @@ fun WeightTrackerApp(
             navController.navigateSingle(Routes.HOME, clearFlow = true)
         }
 
+        var notificationAskRefused by remember { mutableStateOf(false) }
         val notificationLauncher = rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
         ) { granted ->
             viewModel.setReminderEnabled(granted)
-            if (!granted) viewModel.showToast("Notifications are off for Weight Tracker")
+            if (!granted) {
+                notificationAskRefused = true
+                viewModel.showToast("Notifications are off — tap again to open settings")
+            }
         }
 
         val csvLauncher = rememberLauncherForActivityResult(
@@ -183,10 +191,17 @@ fun WeightTrackerApp(
             }
         }
 
+        // The destination an intent asked for. Arriving there is not a user
+        // navigation, so it must not count as one and close the overlay the intent
+        // came to open.
+        var routeFromIntent by remember { mutableStateOf<String?>(null) }
+        var previousRoute by remember { mutableStateOf<String?>(null) }
+
         // A widget or notification tap can ask for a specific destination.
         LaunchedEffect(initialRoute) {
             when (initialRoute) {
                 tech.idct.weighttracker.MainActivity.ROUTE_PAYWALL -> {
+                    routeFromIntent = Routes.WIDGETS
                     navController.navigateSingle(Routes.WIDGETS)
                     viewModel.openOverlay(Overlay.Paywall)
                 }
@@ -195,6 +210,7 @@ fun WeightTrackerApp(
                     navController.navigateSingle(Routes.PLACEMENT)
 
                 tech.idct.weighttracker.MainActivity.ROUTE_LOG -> {
+                    routeFromIntent = Routes.HOME
                     navController.navigateSingle(Routes.HOME)
                     viewModel.openOverlay(Overlay.LogSheet)
                 }
@@ -205,8 +221,16 @@ fun WeightTrackerApp(
             if (initialRoute != null) onRouteConsumed()
         }
 
-        // Section 7: no overlay survives a destination change.
-        LaunchedEffect(currentRoute) { viewModel.onNavigate() }
+        // Section 7: no overlay survives a destination change. The first composition
+        // is not a change, and neither is the single hop an intent asked for — both
+        // used to wipe the sheet a widget or notification had just opened.
+        LaunchedEffect(currentRoute) {
+            if (previousRoute != null && previousRoute != currentRoute && currentRoute != routeFromIntent) {
+                viewModel.onNavigate()
+            }
+            if (currentRoute == routeFromIntent) routeFromIntent = null
+            previousRoute = currentRoute
+        }
 
         val startRoute = remember(state.loading, state.settings.onboardingComplete) {
             if (state.settings.onboardingComplete) Routes.HOME else Routes.ONBOARD
@@ -246,17 +270,34 @@ fun WeightTrackerApp(
                         }
 
                         composable(Routes.HEALTH_CONNECT) {
+                            // During onboarding this is a step with a decline. Reached
+                            // later from Settings it is a settings screen: it gets a back
+                            // arrow, and leaving it must not silently switch off a
+                            // connection the user already has.
+                            val duringOnboarding = !state.settings.onboardingComplete
                             HealthConnectScreen(
                                 available = healthState.available,
+                                connected = state.settings.healthConnectEnabled && healthState.readGranted,
+                                onBack = if (duringOnboarding) null else ({ navController.popBackStack(); Unit }),
                                 onConnect = {
                                     healthPermissionLauncher.launch(
                                         HealthConnectManager.FOREGROUND_PERMISSIONS
                                     )
                                 },
                                 onSkip = {
-                                    viewModel.setHealthConnectEnabled(false)
-                                    viewModel.setOnboardingComplete()
-                                    navController.navigateSingle(Routes.HOME, clearFlow = true)
+                                    if (duringOnboarding) {
+                                        viewModel.setHealthConnectEnabled(false)
+                                        viewModel.setOnboardingComplete()
+                                        navController.navigateSingle(Routes.HOME, clearFlow = true)
+                                    } else {
+                                        viewModel.setHealthConnectEnabled(false)
+                                        navController.popBackStack()
+                                    }
+                                },
+                                skipLabel = if (duringOnboarding) {
+                                    "Not now, I'll log by hand"
+                                } else {
+                                    "Turn Health Connect off"
                                 },
                             )
                         }
@@ -272,8 +313,12 @@ fun WeightTrackerApp(
                                 },
                                 onDecline = {
                                     viewModel.setBackgroundSyncEnabled(false)
-                                    viewModel.setOnboardingComplete()
-                                    navController.navigateSingle(Routes.HOME, clearFlow = true)
+                                    if (state.settings.onboardingComplete) {
+                                        navController.popBackStack()
+                                    } else {
+                                        viewModel.setOnboardingComplete()
+                                        navController.navigateSingle(Routes.HOME, clearFlow = true)
+                                    }
                                 },
                             )
                         }
@@ -344,10 +389,10 @@ fun WeightTrackerApp(
                                     else viewModel.signIn(context)
                                 },
                                 onExportCsv = { csvLauncher.launch(viewModel.csvFilename()) },
-                                onWidgets = {
-                                    if (state.unlocked) navController.navigateSingle(Routes.WIDGETS)
-                                    else viewModel.openOverlay(Overlay.Paywall)
-                                },
+                                // §7 marks the gallery's previews "Locked until
+                                // purchase", which only means anything if someone who
+                                // has not paid can look at them.
+                                onWidgets = { navController.navigateSingle(Routes.WIDGETS) },
                                 onDeleteAll = { viewModel.openOverlay(Overlay.ConfirmDeleteAll) },
                             )
                         }
@@ -357,12 +402,22 @@ fun WeightTrackerApp(
                                 state = state,
                                 onBack = { navController.popBackStack() },
                                 onToggle = { enabled ->
-                                    if (enabled && Build.VERSION.SDK_INT >= 33) {
-                                        notificationLauncher.launch(
+                                    val needsPermission = enabled &&
+                                        Build.VERSION.SDK_INT >= 33 &&
+                                        ContextCompat.checkSelfPermission(
+                                            context,
+                                            android.Manifest.permission.POST_NOTIFICATIONS,
+                                        ) != PackageManager.PERMISSION_GRANTED
+                                    // Once Android stops showing the dialog, launching it
+                                    // again does nothing and the switch would never move
+                                    // again — so send the user to the settings page that
+                                    // can still grant it.
+                                    when {
+                                        !needsPermission -> viewModel.setReminderEnabled(enabled)
+                                        notificationAskRefused -> openNotificationSettings(context)
+                                        else -> notificationLauncher.launch(
                                             android.Manifest.permission.POST_NOTIFICATIONS
                                         )
-                                    } else {
-                                        viewModel.setReminderEnabled(enabled)
                                     }
                                 },
                                 onTime = viewModel::setReminderTime,
@@ -405,11 +460,11 @@ fun WeightTrackerApp(
                 if (currentRoute in Routes.withBottomBar) {
                     BottomBar(
                         currentRoute = currentRoute,
-                        onHome = { navController.navigateSingle(Routes.HOME) },
-                        onHistory = { navController.navigateSingle(Routes.HISTORY) },
+                        onHome = { navController.navigateTab(Routes.HOME) },
+                        onHistory = { navController.navigateTab(Routes.HISTORY) },
                         onLog = { viewModel.openOverlay(Overlay.LogSheet) },
-                        onPlan = { navController.navigateSingle(Routes.PLAN) },
-                        onSettings = { navController.navigateSingle(Routes.SETTINGS) },
+                        onPlan = { navController.navigateTab(Routes.PLAN) },
+                        onSettings = { navController.navigateTab(Routes.SETTINGS) },
                     )
                 }
             }
@@ -417,6 +472,11 @@ fun WeightTrackerApp(
             // ---- overlays ------------------------------------------------
 
             val overlay = viewModel.overlay
+
+            // Sheets and dialogs are drawn in this Box rather than in windows of their
+            // own, so back would otherwise sail past them into the NavController — and
+            // on Home, where the back stack is empty, straight out of the app.
+            BackHandler(enabled = overlay !is Overlay.None) { viewModel.dismissOverlay() }
 
             BottomSheetScaffold(
                 visible = overlay is Overlay.LogSheet,
@@ -489,6 +549,7 @@ fun WeightTrackerApp(
 
             if (overlay is Overlay.NotificationPreview) {
                 NotificationPreview(
+                    title = Reminder.title(state.settings.reminderTime),
                     body = reminderPreviewBody,
                     lastKnownKg = state.currentKg,
                     unit = state.settings.unit,
@@ -619,10 +680,42 @@ private fun NavItem(
 }
 
 /** Single-top navigation, popping the onboarding flow when it is finished with. */
+/**
+ * [clearFlow] pops the whole graph, so entering or leaving the onboarding flow leaves
+ * exactly one entry behind. Popping only to the start destination left Home sitting
+ * underneath onboarding, and back from the first screen escaped into an app that had
+ * never finished setting itself up.
+ */
 private fun NavHostController.navigateSingle(route: String, clearFlow: Boolean = false) {
     navigate(route) {
         launchSingleTop = true
-        if (clearFlow) popUpTo(graph.startDestinationId) { inclusive = false }
+        if (clearFlow) popUpTo(graph.id) { inclusive = true }
+    }
+}
+
+/**
+ * A bottom-bar destination. Tabs replace one another instead of stacking, so back from
+ * any tab leaves the app rather than replaying the order the tabs were visited in.
+ */
+private fun NavHostController.navigateTab(route: String) {
+    navigate(route) {
+        launchSingleTop = true
+        restoreState = true
+        popUpTo(graph.findStartDestination().id) {
+            saveState = true
+            inclusive = false
+        }
+    }
+}
+
+/** The only route left once Android has stopped showing the permission dialog. */
+private fun openNotificationSettings(context: android.content.Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 }
 

@@ -320,11 +320,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             refreshHealthState()
             if (read) {
                 val result = syncService.syncNow()
-                if (result.imported > 0) {
-                    showToast("Health Connect linked · ${result.imported} records imported")
-                } else {
-                    showToast("Health Connect linked")
-                }
+                showToast(
+                    when (result.imported) {
+                        0 -> "Health Connect linked"
+                        1 -> "Health Connect linked · 1 record imported"
+                        else -> "Health Connect linked · ${result.imported} records imported"
+                    }
+                )
             }
         }
     }
@@ -346,7 +348,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             when (val result = googleSignIn.signIn(activityContext)) {
                 is GoogleSignIn.Result.Success -> {
                     setSignedInEmail(result.email)
-                    showToast("Signed in · plan and history backed up")
+                    // No backup service exists behind this yet, so it does not claim one.
+                    showToast("Signed in as ${result.email}")
                 }
 
                 is GoogleSignIn.Result.Cancelled -> Unit

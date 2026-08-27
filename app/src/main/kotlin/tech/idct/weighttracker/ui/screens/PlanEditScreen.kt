@@ -108,8 +108,10 @@ fun PlanEditScreen(
     }
     val error = PlanMath.validateTarget(startKg, targetKg)
 
-    // Step by 0.5 in whatever unit is on screen, so the control feels the same in both.
-    val step = Units.fromDisplay(0.5f, unit)
+    // Stepped in the unit on screen, then converted, so half a pound is half a pound
+    // rather than whatever survives rounding a converted step.
+    fun stepped(kg: Float, steps: Float): Float =
+        clampTarget(Units.fromDisplay(Units.toDisplay(kg, unit) + steps, unit))
 
     Column(
         modifier = modifier
@@ -146,7 +148,7 @@ fun PlanEditScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    StepperButton("−", { targetKg = clampTarget(targetKg - step) }, size = 40.dp)
+                    StepperButton("−", { targetKg = stepped(targetKg, -0.5f) }, size = 40.dp)
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
                             Units.format(targetKg, unit),
@@ -159,7 +161,7 @@ fun PlanEditScreen(
                         )
                         Text(unit.label, style = TextStyle(fontSize = 14.sp), color = colors.muted)
                     }
-                    StepperButton("+", { targetKg = clampTarget(targetKg + step) }, size = 40.dp)
+                    StepperButton("+", { targetKg = stepped(targetKg, 0.5f) }, size = 40.dp)
                 }
             }
             Text(
@@ -185,7 +187,7 @@ fun PlanEditScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        StepperButton("−", { startKgInput = clampTarget(startKgInput - step) }, size = 40.dp)
+                        StepperButton("−", { startKgInput = stepped(startKgInput, -0.5f) }, size = 40.dp)
                         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 Units.format(startKgInput, unit),
@@ -198,7 +200,7 @@ fun PlanEditScreen(
                             )
                             Text(unit.label, style = TextStyle(fontSize = 14.sp), color = colors.muted)
                         }
-                        StepperButton("+", { startKgInput = clampTarget(startKgInput + step) }, size = 40.dp)
+                        StepperButton("+", { startKgInput = stepped(startKgInput, 0.5f) }, size = 40.dp)
                     }
                 }
                 Text(

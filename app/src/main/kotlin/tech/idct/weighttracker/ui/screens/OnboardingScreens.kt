@@ -31,6 +31,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tech.idct.weighttracker.ui.components.IconTapTarget
 import tech.idct.weighttracker.ui.components.PrimaryButton
 import tech.idct.weighttracker.ui.components.SecondaryButton
 import tech.idct.weighttracker.ui.components.WtCard
@@ -77,7 +78,7 @@ fun OnboardingScreen(
             Box(Modifier.width(52.dp).height(2.dp).background(colors.onTrack))
             Text(
                 "Log your weight, set a goal, and watch the line come down. Works fully " +
-                    "offline — sign in only if you want your plan backed up.",
+                    "offline — everything stays on this phone.",
                 style = TextStyle(fontSize = 15.sp, lineHeight = 23.sp),
                 color = colors.muted,
                 modifier = Modifier.width(300.dp),
@@ -117,7 +118,7 @@ fun OnboardingScreen(
             )
             SecondaryButton("Continue offline", onClick = onContinueOffline, icon = WtIcons.CloudOff)
             Text(
-                "You can sign in later from Settings. Nothing leaves the phone until you do.",
+                "Signing in only links your Google account for now. Nothing leaves the phone.",
                 style = TextStyle(fontSize = 11.5.sp, lineHeight = 17.sp),
                 color = colors.muted,
                 textAlign = TextAlign.Center,
@@ -157,6 +158,9 @@ fun HealthConnectScreen(
     available: Boolean,
     onConnect: () -> Unit,
     onSkip: () -> Unit,
+    connected: Boolean = false,
+    /** Null during onboarding, where this is a step rather than a screen. */
+    onBack: (() -> Unit)? = null,
     skipLabel: String = "Not now, I'll log by hand",
     modifier: Modifier = Modifier,
 ) {
@@ -168,7 +172,18 @@ fun HealthConnectScreen(
             .padding(horizontal = 26.dp)
             .padding(bottom = 30.dp),
     ) {
-        Spacer(Modifier.height(48.dp))
+        if (onBack != null) {
+            Spacer(Modifier.height(6.dp))
+            IconTapTarget(
+                WtIcons.ArrowBack,
+                onBack,
+                contentDescription = "Back",
+                modifier = Modifier.padding(start = 0.dp),
+            )
+            Spacer(Modifier.height(10.dp))
+        } else {
+            Spacer(Modifier.height(48.dp))
+        }
         Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 IconTile { Icon(WtIcons.EcgHeart, null, Modifier.size(24.dp), tint = colors.onTrack) }
@@ -230,8 +245,17 @@ fun HealthConnectScreen(
 
         Spacer(Modifier.height(36.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (available) {
+            if (available && !connected) {
                 PrimaryButton("Connect Health Connect", onClick = onConnect, icon = WtIcons.Link)
+            }
+            if (available && connected) {
+                PrimaryButton(
+                    "Review permissions",
+                    onClick = onConnect,
+                    icon = WtIcons.Link,
+                    background = colors.surface,
+                    contentColor = colors.onSurface,
+                )
             }
             SecondaryButton(skipLabel, onClick = onSkip)
         }

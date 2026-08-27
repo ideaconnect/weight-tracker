@@ -152,12 +152,20 @@ class WeightRepository(private val db: AppDatabase) {
 
     // ---- destructive -------------------------------------------------------
 
-    /** §13: clears entries, plan and settings — but not the purchase entitlement. */
+    /**
+     * §13: clears entries, plan and settings — but not the purchase entitlement.
+     *
+     * Whether onboarding has been seen is not really a setting; wiping it dropped the
+     * user back into the first-run flow on the next launch, as if the app had been
+     * reinstalled.
+     */
     suspend fun deleteAllData() {
+        val seenOnboarding = db.settings().get()?.onboardingComplete == true
         db.entries().deleteAll()
         db.plans().deleteAll()
         db.settings().deleteAll()
         db.tombstones().deleteAll()
+        if (seenOnboarding) db.settings().put(SettingsRow(onboardingComplete = true))
     }
 
     companion object {

@@ -96,6 +96,13 @@ object Reminder {
         alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, showIntent(context))
     }
 
+    /** A 21:00 reminder is not a morning weigh-in. */
+    fun title(at: java.time.LocalTime): String = when (at.hour) {
+        in 0..11 -> "Morning weigh-in"
+        in 12..17 -> "Afternoon weigh-in"
+        else -> "Evening weigh-in"
+    }
+
     /** The body carries how far ahead or behind the plan the user is, and yesterday's weight. */
     suspend fun buildBody(context: Context): Pair<String, Float?> {
         val repo = WeightRepository.get(context)
@@ -158,7 +165,7 @@ object Reminder {
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Morning weigh-in")
+            .setContentTitle(title(settings.reminderTime))
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_LOW)

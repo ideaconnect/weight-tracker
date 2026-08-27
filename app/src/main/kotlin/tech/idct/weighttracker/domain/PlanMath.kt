@@ -133,7 +133,10 @@ object PlanMath {
         // Day zero is the baseline, not a day of the schedule. The plan takes whatever
         // the user weighs today as its starting point and only begins asking for
         // progress tomorrow, so a plan set this morning cannot already be behind.
-        val scheduleStarted = dated && daysSince > 0
+        // ...and nothing to measure until something has been logged. Without an
+        // entry currentKg falls back to the start weight, which would read as
+        // behind by one day's worth for every day the plan has existed.
+        val scheduleStarted = dated && daysSince > 0 && entries.isNotEmpty()
         val aheadKg = if (scheduleStarted) (planToday - currentKg) * direction else 0f
         val behind = scheduleStarted && aheadKg < -BEHIND_THRESHOLD_KG
 

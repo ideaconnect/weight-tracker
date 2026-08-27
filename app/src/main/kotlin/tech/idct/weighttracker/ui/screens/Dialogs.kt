@@ -217,6 +217,7 @@ fun ConfirmDeleteDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 /** Section 7 Reminder: a preview of the notification itself. */
 @Composable
 fun NotificationPreview(
+    title: String,
     body: String,
     lastKnownKg: Float?,
     unit: WeightUnit,
@@ -274,7 +275,7 @@ fun NotificationPreview(
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        "Morning weigh-in",
+                        title,
                         style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium),
                         color = colors.onSurface,
                     )

@@ -14,6 +14,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -90,6 +94,7 @@ fun BottomSheetScaffold(
                             indication = null,
                             onClick = {},
                         )
+                        .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(horizontal = 20.dp)
                         .padding(top = 12.dp, bottom = 22.dp),
                 ) {
@@ -177,7 +182,7 @@ fun LogSheet(
         style = TextStyle(fontSize = 12.sp),
         color = if (typed.isNotEmpty() && !valid) colors.behind else colors.muted,
         textAlign = TextAlign.Center,
-        modifier = Modifier.fillMaxWidth().height(20.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 20.dp),
     )
     Spacer(Modifier.height(14.dp))
 
@@ -234,7 +239,13 @@ fun EditEntrySheet(
 ) {
     val colors = WtTheme.colors
     var kg by remember(entry.date) { mutableFloatStateOf(entry.kg) }
-    val step = Units.fromDisplay(0.1f, unit)
+    // Stepped in the unit on screen. Converting a 0.1 lb step into kg gives 0.045,
+    // which the one-decimal rounding put straight back where it started, so in pounds
+    // the buttons did nothing at all.
+    fun nudge(steps: Float) {
+        val shown = Units.toDisplay(kg, unit) + steps
+        kg = Units.roundKg(Units.fromDisplay(shown, unit)).coerceIn(20f, 400f)
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -259,7 +270,7 @@ fun EditEntrySheet(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StepperButton("−", { kg = Units.roundKg((kg - step).coerceIn(20f, 400f)) })
+        StepperButton("−", { nudge(-0.1f) })
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Text(
                 Units.format(kg, unit),
@@ -268,7 +279,7 @@ fun EditEntrySheet(
             )
             Text(unit.label, style = TextStyle(fontSize = 15.sp), color = colors.muted)
         }
-        StepperButton("+", { kg = Units.roundKg((kg + step).coerceIn(20f, 400f)) })
+        StepperButton("+", { nudge(0.1f) })
     }
 
     Spacer(Modifier.height(12.dp))

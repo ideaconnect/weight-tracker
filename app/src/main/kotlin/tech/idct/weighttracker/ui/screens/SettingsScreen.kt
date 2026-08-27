@@ -175,8 +175,10 @@ fun SettingsScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
                         Text("Google account", style = TextStyle(fontSize = 14.5.sp), color = colors.onSurface)
                         // Section 11: the account row states which state is active in plain words.
+                        // §11 asks for plain words about which state is active. Backup
+                        // is not built yet, so this does not pretend otherwise.
                         Text(
-                            settings.signedInEmail?.let { "$it · plan backed up" }
+                            settings.signedInEmail?.let { "$it · backup not available yet" }
                                 ?: "Offline — nothing uploaded",
                             style = TextStyle(fontSize = 11.5.sp),
                             color = colors.muted,

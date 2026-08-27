@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.idct.weighttracker.domain.EntrySource
@@ -168,13 +170,19 @@ private fun EntryRow(row: HistoryRow, unit: WeightUnit, onClick: () -> Unit) {
             row.entry.date.format(Format.monthDay),
             style = TextStyle(fontFamily = RobotoMono, fontSize = 12.5.sp),
             color = colors.muted,
-            modifier = Modifier.width(50.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            // Fixed dp against sp text wraps a date onto two lines at a large font
+            // scale; the spacer below absorbs whatever these need.
+            modifier = Modifier.widthIn(min = 50.dp),
         )
         Text(
             Units.format(row.entry.kg, unit),
             style = TextStyle(fontSize = 15.sp),
             color = colors.onSurface,
-            modifier = Modifier.width(56.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(min = 56.dp),
         )
         // Section 7: day-over-day delta, green down, amber up.
         Text(
@@ -193,7 +201,9 @@ private fun EntryRow(row: HistoryRow, unit: WeightUnit, onClick: () -> Unit) {
                 row.delta < 0f -> colors.onTrack
                 else -> colors.behind
             },
-            modifier = Modifier.width(52.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(min = 52.dp),
         )
         Spacer(Modifier.weight(1f))
         Box(

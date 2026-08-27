@@ -16,8 +16,8 @@ document.
 - **One plan at a time**, fixed by a date, by a weekly pace, or open-ended.
 - **Health Connect sync** that fills gaps only: your manual entries always win,
   and a deleted day is never re-imported.
-- **Five widgets**: 2×2 ring, 4×2 bar, 4×2 chart, 4×4 chart + stats, and a
-  lock-screen glance.
+- **Six widgets**: 2×2 ring, 4×2 bar, 4×2 chart, 4×4 chart + stats, and the
+  lock-screen glance in a wide (4×1, with a progress bar) and a compact (2×1) width.
 - **A daily reminder** carrying real numbers, with inline logging.
 - **Offline by default.** Every feature except backup works with no account and
   no network.

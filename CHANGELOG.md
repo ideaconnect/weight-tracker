@@ -34,7 +34,8 @@ the first one to be recorded here; the rest are noted for the same reason.
   they do anything; see the README. Without them sign-in says so plainly,
   the paywall reports that Play is unreachable, and the banner shows Google's
   test creative.
-- Signing in records the account and states that the plan is backed up, but no
-  backup service is wired up behind it yet.
+- Signing in records the account, but there is no backup service behind it. The
+  account row and the sign-in confirmation say so rather than promising a backup that
+  does not happen.
 - Lock-screen placement for the glance widget depends on the launcher; it is
   declared for both the keyguard and home-screen categories.
