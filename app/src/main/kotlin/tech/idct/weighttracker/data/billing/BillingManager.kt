@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import tech.idct.weighttracker.R
 import tech.idct.weighttracker.data.repo.WeightRepository
 import tech.idct.weighttracker.widget.WidgetUpdater
 
@@ -36,10 +37,11 @@ class BillingManager(
     private val repo: WeightRepository,
 ) {
     companion object {
-        /** The single non-consumable in-app product. */
-        const val PRODUCT_ID = "widgets_unlock"
         private const val TAG = "BillingManager"
     }
+
+    /** The single non-consumable in-app product, from res/values/oauth.xml. */
+    private val productId: String get() = context.getString(R.string.billing_product_id)
 
     enum class Availability { UNKNOWN, READY, UNAVAILABLE }
 
@@ -110,7 +112,7 @@ class BillingManager(
             .setProductList(
                 listOf(
                     QueryProductDetailsParams.Product.newBuilder()
-                        .setProductId(PRODUCT_ID)
+                        .setProductId(productId)
                         .setProductType(BillingClient.ProductType.INAPP)
                         .build()
                 )
@@ -121,7 +123,7 @@ class BillingManager(
                 Log.w(TAG, "Product query failed: ${result.debugMessage}")
                 return@queryProductDetailsAsync
             }
-            val details = queryResult.productDetailsList.firstOrNull { it.productId == PRODUCT_ID }
+            val details = queryResult.productDetailsList.firstOrNull { it.productId == productId }
             productDetails = details
             _state.value = _state.value.copy(
                 price = details?.oneTimePurchaseOfferDetails?.formattedPrice
@@ -141,7 +143,7 @@ class BillingManager(
         ) { result, purchases ->
             if (result.responseCode != BillingClient.BillingResponseCode.OK) return@queryPurchasesAsync
             val owned = purchases.any {
-                PRODUCT_ID in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED
+                productId in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED
             }
             if (owned) {
                 purchases.forEach { acknowledgeIfNeeded(it) }
@@ -183,7 +185,7 @@ class BillingManager(
         when (result.responseCode) {
             BillingClient.BillingResponseCode.OK -> {
                 purchases.orEmpty()
-                    .filter { PRODUCT_ID in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED }
+                    .filter { productId in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED }
                     .forEach {
                         acknowledgeIfNeeded(it)
                         grant()

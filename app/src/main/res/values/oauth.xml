@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        The Google Cloud OAuth 2.0 *Web application* client ID, used as the server
+        client ID for Credential Manager sign-in. Leave empty to keep sign-in
+        disabled: the app then says so plainly and everything else works offline.
+    -->
+    <string name="google_server_client_id" translatable="false"></string>
+
+    <!-- The Play Console in-app product ID for the one-time widget unlock. -->
+    <string name="billing_product_id" translatable="false">widgets_unlock</string>
+</resources>
