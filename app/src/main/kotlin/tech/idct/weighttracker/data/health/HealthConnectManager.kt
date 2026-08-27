@@ -109,12 +109,16 @@ class HealthConnectManager(private val context: Context) {
      * Optional write-back of a manual entry. Fails quietly: the entry is already
      * saved locally, and the local database is the source of truth.
      */
-    suspend fun writeWeight(date: LocalDate, kg: Float, atTime: Instant = Instant.now()): Boolean {
+    suspend fun writeWeight(date: LocalDate, kg: Float, atTime: Instant? = null): Boolean {
         val hc = client ?: return false
         if (!hasWritePermission()) return false
         return runCatching {
             val zone = ZoneId.systemDefault()
-            val instant = if (date == LocalDate.now()) atTime else date.atTime(8, 0).atZone(zone).toInstant()
+            // Today's entry is stamped now; a backdated one is stamped 08:00, the same
+            // morning-weigh-in assumption the read path makes (section 4 rule 3).
+            val instant = atTime
+                ?: if (date == LocalDate.now()) Instant.now()
+                else date.atTime(8, 0).atZone(zone).toInstant()
             hc.insertRecords(
                 listOf(
                     WeightRecord(

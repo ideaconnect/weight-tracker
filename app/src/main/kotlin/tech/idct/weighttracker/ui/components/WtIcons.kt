@@ -1,11 +1,11 @@
 package tech.idct.weighttracker.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AddToHomeScreen
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Construction
@@ -52,7 +52,7 @@ object WtIcons {
     val Notifications = Icons.Outlined.Notifications
     val Info = Icons.Outlined.Info
     val TouchApp = Icons.Outlined.TouchApp
-    val AddToHomeScreen = Icons.Outlined.AddToHomeScreen
+    val AddToHomeScreen = Icons.AutoMirrored.Outlined.AddToHomeScreen
     val Delete = Icons.Outlined.Delete
     val DeleteForever = Icons.Outlined.DeleteForever
     val Check = Icons.Outlined.Check

@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application>
         <!-- Debug-only fixture loader; see DebugSeedReceiver for usage. -->
         <receiver
             android:name="tech.idct.weighttracker.debug.DebugSeedReceiver"
             android:exported="true" />
+
+        <!--
+            The reminder receiver is internal in release. Exporting it in debug lets
+            the daily notification be fired on demand rather than waiting for 08:00:
+
+            adb shell am broadcast -a tech.idct.weighttracker.SHOW_REMINDER \
+              -n <applicationId>/tech.idct.weighttracker.work.ReminderReceiver
+        -->
+        <receiver
+            android:name="tech.idct.weighttracker.work.ReminderReceiver"
+            android:exported="true"
+            tools:replace="android:exported" />
     </application>
 </manifest>

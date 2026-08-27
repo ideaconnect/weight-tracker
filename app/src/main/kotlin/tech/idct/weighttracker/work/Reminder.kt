@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
@@ -32,6 +33,8 @@ import kotlin.math.abs
  * enabled. The body carries real numbers.
  */
 object Reminder {
+
+    private const val TAG = "Reminder"
 
     const val CHANNEL_ID = "daily_reminder"
     const val NOTIFICATION_ID = 4201
@@ -132,7 +135,10 @@ object Reminder {
 
         val repo = WeightRepository.get(context)
         val settings = repo.settings()
-        if (!settings.reminderEnabled) return
+        if (!settings.reminderEnabled) {
+            Log.i(TAG, "Reminder is off; nothing posted")
+            return
+        }
 
         val (body, lastKnown) = buildBody(context)
 
@@ -186,7 +192,7 @@ object Reminder {
 
         runCatching {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build())
-        }
+        }.onFailure { Log.w(TAG, "Could not post the daily reminder", it) }
     }
 }
 

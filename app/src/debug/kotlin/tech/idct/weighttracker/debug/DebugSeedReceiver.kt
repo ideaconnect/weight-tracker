@@ -7,6 +7,8 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import tech.idct.weighttracker.data.db.AppDatabase
+import tech.idct.weighttracker.data.health.HealthConnectManager
 import tech.idct.weighttracker.data.repo.WeightRepository
 import tech.idct.weighttracker.domain.EntrySource
 import tech.idct.weighttracker.domain.Plan
@@ -40,6 +42,37 @@ class DebugSeedReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val repo = WeightRepository.get(app)
+
+                // Write records straight into Health Connect, so the read path can be
+                // exercised with data this app does not already hold locally.
+                if (intent.getBooleanExtra("hcwrite", false)) {
+                    val health = HealthConnectManager(app)
+                    val today = LocalDate.now()
+                    // Two records on the same day, to prove earliest-of-day wins.
+                    val written = listOf(
+                        Triple(today.minusDays(2), 81.9f, 7),
+                        Triple(today.minusDays(1), 81.1f, 6),
+                        Triple(today.minusDays(1), 88.8f, 20),
+                    ).count { (date, kg, hour) ->
+                        health.writeWeight(
+                            date = date,
+                            kg = kg,
+                            atTime = date.atTime(hour, 0)
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toInstant(),
+                        )
+                    }
+                    // Remove those days locally, tombstones and all, so the next sync
+                    // genuinely has to fill them in from Health Connect.
+                    val db = AppDatabase.get(app)
+                    listOf(today.minusDays(1), today.minusDays(2)).forEach { date ->
+                        db.entries().deleteByDate(date.toEpochDay())
+                        db.tombstones().clear(date.toEpochDay())
+                    }
+                    Log.i("DebugSeed", "wrote $written records to Health Connect")
+                    return@launch
+                }
+
                 repo.deleteAllData()
                 if (clear) {
                     WidgetUpdater.updateAll(app)
