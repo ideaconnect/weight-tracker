@@ -3,6 +3,8 @@ package tech.idct.weighttracker.widget
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,8 +68,12 @@ abstract class BaseWeightWidget : GlanceAppWidget() {
     abstract fun Content(data: WidgetData, palette: WidgetPalette)
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val data = WidgetData.load(context)
+        val initial = WidgetData.load(context)
         provideContent {
+            // Collected inside the composition on purpose: Glance recomposes a live
+            // session instead of calling provideGlance again, so anything captured
+            // outside would go stale until the session expired.
+            val data by WidgetData.flow(context).collectAsState(initial = initial)
             val palette = WidgetPalette(data.dark, data.behind)
             GlanceTheme {
                 Box(
@@ -164,7 +170,12 @@ private fun ProgressTrack(progress: Float, palette: WidgetPalette, height: Int =
 
 @Composable
 private fun StatTile(label: String, value: String, palette: WidgetPalette, valueColor: Int = palette.onSurface) {
-    Column(modifier = GlanceModifier.background(Color(palette.surfaceAlt)).padding(horizontal = 11.dp, vertical = 10.dp)) {
+    Column(
+        modifier = GlanceModifier
+            .fillMaxWidth()
+            .background(Color(palette.surfaceAlt))
+            .padding(horizontal = 11.dp, vertical = 10.dp)
+    ) {
         Text(label, style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 10.sp))
         Spacer(GlanceModifier.height(2.dp))
         Text(
@@ -304,13 +315,17 @@ class ChartWidget : BaseWeightWidget() {
         val density = context.resources.displayMetrics.density
         val size = LocalSize.current
         val chartWidthDp = (size.width.value - 130f).coerceAtLeast(80f)
+        // Grow with the cell, but keep the prototype's wide, shallow band (200x70):
+        // at 1:1 the daily noise swamps the trend and the widget reads as a scribble.
+        val available = (size.height.value - 28f).coerceAtLeast(48f)
+        val chartHeightDp = minOf(available, chartWidthDp / 2.9f).coerceIn(44f, 110f)
 
         Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 provider = ImageProvider(
                     WidgetPainter.sparkline(
                         widthPx = (chartWidthDp * density).roundToInt(),
-                        heightPx = (70 * density).roundToInt(),
+                        heightPx = (chartHeightDp * density).roundToInt(),
                         entries = data.entries,
                         stats = stats,
                         palette = palette,
@@ -318,7 +333,7 @@ class ChartWidget : BaseWeightWidget() {
                     )
                 ),
                 contentDescription = null,
-                modifier = GlanceModifier.width(chartWidthDp.dp).height(70.dp),
+                modifier = GlanceModifier.width(chartWidthDp.dp).height(chartHeightDp.dp),
             )
             Spacer(GlanceModifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End) {
@@ -359,8 +374,18 @@ class BigWidget : BaseWeightWidget() {
         val density = context.resources.displayMetrics.density
         val size = LocalSize.current
         val chartWidthDp = (size.width.value - 32f).coerceAtLeast(120f)
+        // Everything else in the column is a known height, so the chart takes what is
+        // left of the cell — capped to the prototype's 260x96 proportion, with the
+        // column centred so any remainder is split above and below rather than
+        // pooling at the bottom.
+        val fixedHeightDp = 34f + 12f + 12f + 6f + 12f + 52f + 28f
+        val available = (size.height.value - fixedHeightDp).coerceAtLeast(64f)
+        val chartHeightDp = minOf(available, chartWidthDp / 2.7f).coerceIn(64f, 160f)
 
-        Column(modifier = GlanceModifier.fillMaxSize()) {
+        Column(
+            modifier = GlanceModifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 Text(
                     Units.format(stats.currentKg, data.unit),
@@ -399,7 +424,7 @@ class BigWidget : BaseWeightWidget() {
                 provider = ImageProvider(
                     WidgetPainter.sparkline(
                         widthPx = (chartWidthDp * density).roundToInt(),
-                        heightPx = (96 * density).roundToInt(),
+                        heightPx = (chartHeightDp * density).roundToInt(),
                         entries = data.entries,
                         stats = stats,
                         palette = palette,
@@ -407,7 +432,7 @@ class BigWidget : BaseWeightWidget() {
                     )
                 ),
                 contentDescription = null,
-                modifier = GlanceModifier.fillMaxWidth().height(96.dp),
+                modifier = GlanceModifier.fillMaxWidth().height(chartHeightDp.dp),
             )
             Spacer(GlanceModifier.height(12.dp))
             ProgressTrack(stats.progress, palette, height = 6)

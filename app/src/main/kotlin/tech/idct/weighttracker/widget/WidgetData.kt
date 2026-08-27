@@ -2,7 +2,10 @@ package tech.idct.weighttracker.widget
 
 import android.content.Context
 import android.content.res.Configuration
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import tech.idct.weighttracker.data.repo.WeightRepository
+import tech.idct.weighttracker.domain.AppSettings
 import tech.idct.weighttracker.domain.Plan
 import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanStats
@@ -28,11 +31,47 @@ data class WidgetData(
     val behind: Boolean get() = stats?.behind == true
 
     companion object {
+        /** A one-shot read, for the first frame of a new Glance session. */
         suspend fun load(context: Context): WidgetData {
             val repo = WeightRepository.get(context)
-            val settings = repo.settings()
-            val plan = repo.plan()
-            val entries = repo.entries()
+            return build(
+                context = context,
+                entries = repo.entries(),
+                plan = repo.plan(),
+                settings = repo.settings(),
+                unlocked = repo.isUnlocked(),
+            )
+        }
+
+        /**
+         * The same snapshot as a flow.
+         *
+         * This has to be collected inside `provideContent`, not read before it. Glance
+         * keeps a session alive for a while after an update, and a later update
+         * recomposes that session's existing content rather than calling
+         * `provideGlance` again — so anything loaded outside the composition is frozen
+         * at the value it had when the session started, and a theme or unit change
+         * would not reach a placed widget until the session expired.
+         */
+        fun flow(context: Context): Flow<WidgetData> {
+            val repo = WeightRepository.get(context)
+            return combine(
+                repo.observeEntries(),
+                repo.observePlan(),
+                repo.observeSettings(),
+                repo.observeUnlocked(),
+            ) { entries, plan, settings, unlocked ->
+                build(context, entries, plan, settings, unlocked)
+            }
+        }
+
+        private fun build(
+            context: Context,
+            entries: List<WeightEntry>,
+            plan: Plan?,
+            settings: AppSettings,
+            unlocked: Boolean,
+        ): WidgetData {
             val today = LocalDate.now()
             val stats = plan?.let { PlanMath.stats(it, entries, today) }
 
@@ -46,7 +85,7 @@ data class WidgetData(
             }
 
             return WidgetData(
-                unlocked = repo.isUnlocked(),
+                unlocked = unlocked,
                 unit = settings.unit,
                 dark = dark,
                 plan = plan,
