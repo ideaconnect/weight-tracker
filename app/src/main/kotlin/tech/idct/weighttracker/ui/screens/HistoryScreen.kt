@@ -178,11 +178,19 @@ private fun EntryRow(row: HistoryRow, unit: WeightUnit, onClick: () -> Unit) {
         )
         // Section 7: day-over-day delta, green down, amber up.
         Text(
-            row.delta?.let { (if (it > 0) "+" else "−") + Units.format(abs(it), unit) } ?: "—",
+            row.delta?.let { delta ->
+                val shown = Units.format(abs(delta), unit)
+                when {
+                    shown.toFloatOrNull() == 0f -> shown
+                    delta > 0 -> "+$shown"
+                    else -> "−$shown"
+                }
+            } ?: "—",
             style = TextStyle(fontFamily = RobotoMono, fontSize = 12.5.sp),
             color = when {
                 row.delta == null -> colors.muted
-                row.delta <= 0f -> colors.onTrack
+                abs(row.delta) < 0.05f -> colors.muted
+                row.delta < 0f -> colors.onTrack
                 else -> colors.behind
             },
             modifier = Modifier.width(52.dp),

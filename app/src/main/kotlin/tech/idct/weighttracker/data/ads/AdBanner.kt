@@ -44,8 +44,10 @@ fun AdBanner(modifier: Modifier = Modifier) {
             AdView(context).apply {
                 setAdSize(AdSize.BANNER)
                 adUnitId = Ads.BANNER_UNIT_ID
+                // Section 10 asks for a 320x50 banner exactly, so the view is left to
+                // its natural size rather than stretched to the container.
                 layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                 )
                 runCatching { loadAd(AdRequest.Builder().build()) }

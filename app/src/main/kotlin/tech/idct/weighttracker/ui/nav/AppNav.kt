@@ -33,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,10 +46,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -82,6 +85,7 @@ import tech.idct.weighttracker.ui.screens.SettingsScreen
 import tech.idct.weighttracker.ui.screens.WidgetInfoDialog
 import tech.idct.weighttracker.ui.screens.WidgetsScreen
 import tech.idct.weighttracker.ui.theme.WeightTrackerTheme
+import tech.idct.weighttracker.ui.theme.isDark
 import tech.idct.weighttracker.ui.theme.WtDimens
 import tech.idct.weighttracker.ui.theme.WtTheme
 import tech.idct.weighttracker.widget.WidgetUpdater
@@ -118,6 +122,18 @@ fun WeightTrackerApp(
     WeightTrackerTheme(themeChoice = state.settings.theme, behindPlan = state.behind) {
         val colors = WtTheme.colors
         val context = LocalContext.current
+        val view = LocalView.current
+        val darkTheme = isDark(state.settings.theme)
+
+        // System bar icons follow the app's own theme, not only the system one.
+        SideEffect {
+            (view.context as? android.app.Activity)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view).apply {
+                    isAppearanceLightStatusBars = !darkTheme
+                    isAppearanceLightNavigationBars = !darkTheme
+                }
+            }
+        }
         val activity = context as? ComponentActivity
         val navController = rememberNavController()
         val scope = rememberCoroutineScope()
@@ -263,7 +279,11 @@ fun WeightTrackerApp(
                         }
 
                         composable(Routes.HOME) {
-                            if (state.hasEntries) {
+                            // Nothing is known until the first database emission; showing
+                            // the day-one screen in the meantime would flash on every start.
+                            if (state.loading) {
+                                Box(Modifier.fillMaxSize())
+                            } else if (state.hasEntries) {
                                 HomeScreen(
                                     state = state,
                                     syncing = viewModel.syncing,
@@ -324,7 +344,10 @@ fun WeightTrackerApp(
                                     else viewModel.signIn(context)
                                 },
                                 onExportCsv = { csvLauncher.launch(viewModel.csvFilename()) },
-                                onWidgets = { navController.navigateSingle(Routes.WIDGETS) },
+                                onWidgets = {
+                                    if (state.unlocked) navController.navigateSingle(Routes.WIDGETS)
+                                    else viewModel.openOverlay(Overlay.Paywall)
+                                },
                                 onDeleteAll = { viewModel.openOverlay(Overlay.ConfirmDeleteAll) },
                             )
                         }
@@ -546,7 +569,7 @@ private fun BottomBar(
                 modifier = Modifier
                     .size(46.dp)
                     .clip(RoundedCornerShape(23.dp))
-                    .background(WtTheme.accent),
+                    .background(colors.onTrack),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

@@ -128,7 +128,9 @@ fun WtChip(
     modifier: Modifier = Modifier,
     fillWidth: Boolean = false,
 ) {
-    val accent = WtTheme.accent
+    // Section 12: onTrack also carries primary actions, so a selected chip stays
+    // green even when the plan status is amber (section 6 lists what turns amber).
+    val accent = WtTheme.colors.onTrack
     Box(
         modifier = modifier
             .then(if (fillWidth) Modifier.fillMaxWidth() else Modifier)
@@ -212,7 +214,7 @@ fun WtSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Mod
             modifier = Modifier
                 .size(50.dp, 30.dp)
                 .clip(RoundedCornerShape(15.dp))
-                .background(if (checked) WtTheme.accent else WtTheme.colors.outline)
+                .background(if (checked) WtTheme.colors.onTrack else WtTheme.colors.outline)
                 .padding(3.dp),
             contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
         ) {
@@ -258,7 +260,7 @@ fun PrimaryButton(
     icon: ImageVector? = null,
     enabled: Boolean = true,
     height: Dp = 52.dp,
-    background: Color = WtTheme.accent,
+    background: Color = WtTheme.colors.onTrack,
     contentColor: Color = WtTheme.colors.onAccent,
 ) {
     val bg = if (enabled) background else WtTheme.colors.surfaceAlt

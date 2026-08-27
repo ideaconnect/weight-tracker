@@ -42,6 +42,7 @@ android {
     buildFeatures { compose = true }
 
     sourceSets["main"].kotlin.srcDir("src/main/kotlin")
+    sourceSets["debug"].kotlin.srcDir("src/debug/kotlin")
     sourceSets["test"].kotlin.srcDir("src/test/kotlin")
 
     packaging {

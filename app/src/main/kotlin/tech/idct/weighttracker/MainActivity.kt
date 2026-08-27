@@ -1,9 +1,11 @@
 package tech.idct.weighttracker
 
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
@@ -13,6 +15,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
+import tech.idct.weighttracker.data.repo.ThemePrefs
 import tech.idct.weighttracker.ui.AppViewModel
 import tech.idct.weighttracker.ui.nav.WeightTrackerApp
 
@@ -31,7 +34,21 @@ class MainActivity : ComponentActivity() {
     private var pendingRoute by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // Section 12: dark is true black, so the launch window must not flash white.
+        val dark = ThemePrefs.isDark(this)
+        window.setBackgroundDrawable(ColorDrawable(if (dark) 0xFF000000.toInt() else 0xFFFFFFFF.toInt()))
+        enableEdgeToEdge(
+            statusBarStyle = if (dark) {
+                SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+            },
+            navigationBarStyle = if (dark) {
+                SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+            } else {
+                SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+            },
+        )
         super.onCreate(savedInstanceState)
         pendingRoute = intent?.getStringExtra(EXTRA_ROUTE)
 

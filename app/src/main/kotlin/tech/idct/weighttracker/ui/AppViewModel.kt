@@ -19,6 +19,7 @@ import tech.idct.weighttracker.data.account.GoogleSignIn
 import tech.idct.weighttracker.data.billing.BillingManager
 import tech.idct.weighttracker.data.health.HealthConnectManager
 import tech.idct.weighttracker.data.health.SyncService
+import tech.idct.weighttracker.data.repo.ThemePrefs
 import tech.idct.weighttracker.data.repo.WeightRepository
 import tech.idct.weighttracker.domain.AppSettings
 import tech.idct.weighttracker.domain.Plan
@@ -235,7 +236,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setUnit(unit: WeightUnit) = mutateSettings({ it.copy(unit = unit) })
 
-    fun setTheme(theme: ThemeChoice) = mutateSettings({ it.copy(theme = theme) })
+    fun setTheme(theme: ThemeChoice) = mutateSettings({ it.copy(theme = theme) }) {
+        ThemePrefs.write(getApplication(), theme)
+    }
 
     fun setReminderEnabled(enabled: Boolean) {
         mutateSettings({ it.copy(reminderEnabled = enabled) }) {

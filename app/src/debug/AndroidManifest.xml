@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug-only fixture loader; see DebugSeedReceiver for usage. -->
+        <receiver
+            android:name="tech.idct.weighttracker.debug.DebugSeedReceiver"
+            android:exported="true" />
+    </application>
+</manifest>

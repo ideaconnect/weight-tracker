@@ -115,16 +115,25 @@ fun WeightChart(
     val yDom = remember(win, entryDays, plan) { computeYDomain(win, entryDays, plan, stats) }
 
     // Pixel geometry, in the proportions the prototype lays out (331 x 206 units).
+    // Derived from whatever width and height are in hand: the draw pass uses the
+    // DrawScope's own size, so the first frame is never blank, while the pointer
+    // and overlay maths fall back to the last measured size.
+    fun axOf(width: Float) = width * 34f / 331f
+    fun awOf(width: Float) = width * 286f / 331f
+    fun ayOf(height: Float) = height * 14f / 206f
+    fun ahOf(height: Float) = height * 150f / 206f
+
+    fun xIn(width: Float, day: Float): Float = axOf(width) + (day - win.x0) / win.width * awOf(width)
+    fun yIn(height: Float, kg: Float): Float =
+        ayOf(height) + (yDom.hi - kg) / (yDom.hi - yDom.lo) * ahOf(height)
+
     val w = plotSize.width.toFloat()
     val h = plotSize.height.toFloat()
-    val ax = w * 34f / 331f
-    val ay = h * 14f / 206f
-    val aw = w * 286f / 331f
-    val ah = h * 150f / 206f
 
-    fun xOf(day: Float): Float = ax + (day - win.x0) / win.width * aw
-    fun yOf(kg: Float): Float = ay + (yDom.hi - kg) / (yDom.hi - yDom.lo) * ah
-    fun dayAt(px: Float): Float = win.x0 + (px - ax) / aw * win.width
+    // Overlay positions, measured against the laid-out size.
+    fun xOf(day: Float): Float = xIn(w, day)
+    fun yOf(kg: Float): Float = yIn(h, kg)
+    fun dayAt(px: Float): Float = win.x0 + (px - axOf(w)) / awOf(w) * win.width
 
     val scrubEntry = scrubDay?.let { d -> entryDays.minByOrNull { abs(it.first - d) } }
 
@@ -167,7 +176,14 @@ fun WeightChart(
                         }
                     }
             ) {
-                if (w <= 0f || h <= 0f) return@Canvas
+                if (size.width <= 0f || size.height <= 0f) return@Canvas
+
+                val ax = axOf(size.width)
+                val aw = awOf(size.width)
+                val ay = ayOf(size.height)
+                val ah = ahOf(size.height)
+                fun xOf(day: Float): Float = xIn(size.width, day)
+                fun yOf(kg: Float): Float = yIn(size.height, kg)
 
                 val ticks = yTicks(yDom)
 
@@ -342,7 +358,7 @@ fun WeightChart(
                 val diff = (planAt - entry.kg) * stats.direction
                 val tipWidthPx = with(density) { 106.dp.toPx() }
                 val left = if (sx > w * 0.55f) sx - tipWidthPx else sx
-                val top = max(ay, yOf(entry.kg) - with(density) { 56.dp.toPx() })
+                val top = max(ayOf(h), yOf(entry.kg) - with(density) { 56.dp.toPx() })
                 Column(
                     modifier = Modifier
                         .offsetPx(left, top)
@@ -413,10 +429,10 @@ fun WeightChart(
                 Box(Modifier.width(14.dp).height(2.dp).background(accent))
             }
             LegendItem("Plan") {
-                Box(Modifier.width(14.dp).height(1.5.dp).background(colors.muted))
+                LineSwatch(colors.muted, dash = 3f, gap = 3f)
             }
             LegendItem("Trend") {
-                Box(Modifier.width(14.dp).height(1.5.dp).background(colors.onSurface.copy(alpha = 0.55f)))
+                LineSwatch(colors.onSurface.copy(alpha = 0.55f), dash = 1.5f, gap = 2.5f)
             }
             if (dated) {
                 LegendItem("±0.6 band") {
@@ -430,6 +446,22 @@ fun WeightChart(
                 }
             }
         }
+    }
+}
+
+/** A dashed or dotted legend swatch, so Plan and Trend read as the lines they mark. */
+@Composable
+private fun LineSwatch(color: androidx.compose.ui.graphics.Color, dash: Float, gap: Float) {
+    Canvas(Modifier.width(14.dp).height(2.dp)) {
+        drawLine(
+            color = color,
+            start = Offset(0f, size.height / 2f),
+            end = Offset(size.width, size.height / 2f),
+            strokeWidth = 1.5.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(
+                floatArrayOf(dash * density, gap * density)
+            ),
+        )
     }
 }
 

@@ -115,7 +115,8 @@ fun PlanScreen(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(horizontal = 12.dp, vertical = 0.dp)
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 8.dp)
                         .height(1.dp)
                         .background(colors.outline)
                 )
@@ -123,7 +124,7 @@ fun PlanScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
-                    Text("Now", style = TextStyle(fontSize = 11.5.sp), color = WtTheme.accent)
+                    Text("Now", style = TextStyle(fontSize = 11.5.sp), color = colors.onTrack)
                     Text(
                         Units.format(stats.currentKg, unit),
                         style = TextStyle(
@@ -143,6 +144,7 @@ fun PlanScreen(
                     modifier = Modifier
                         .weight(1f)
                         .padding(horizontal = 12.dp)
+                        .padding(bottom = 8.dp)
                         .height(1.dp)
                         .background(colors.outline)
                 )
