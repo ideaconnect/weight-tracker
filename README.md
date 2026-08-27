@@ -1,7 +1,7 @@
 # Weight Tracker
 
 An Android weight-tracking app: log your weight, set a goal, and watch the line
-come down. Free with a single banner ad; one payment unlocks five home-screen
+come down. Free with a single banner ad; one payment unlocks the home-screen
 widgets and removes the ad permanently.
 
 Built to the *Weight Tracker — build specification* (Rev 2026-08-27) and its
@@ -19,8 +19,8 @@ document.
 - **Six widgets**: 2×2 ring, 4×2 bar, 4×2 chart, 4×4 chart + stats, and the
   lock-screen glance in a wide (4×1, with a progress bar) and a compact (2×1) width.
 - **A daily reminder** carrying real numbers, with inline logging.
-- **Offline by default.** Every feature except backup works with no account and
-  no network.
+- **Offline by default.** Everything works with no account and no network, and
+  nothing is uploaded — Android cloud backup is switched off too.
 
 ## Building
 
@@ -46,7 +46,7 @@ sdk.dir=/path/to/android-sdk
 | Min / target SDK | 26 / 36 |
 | Storage | Room, one local database, always the source of truth |
 | Health data | Health Connect client, `WeightRecord` read and write |
-| Widgets | Glance, five providers |
+| Widgets | Glance, six providers |
 | Scheduling | WorkManager for the daily sync, AlarmManager for the reminder |
 | Payments | Play Billing, one non-consumable product |
 | Ads | One 320×50 banner, home screen only |
@@ -60,8 +60,8 @@ without them — it just says so plainly rather than failing.
 **`app/src/main/res/values/oauth.xml`**
 
 - `google_server_client_id` — the Google Cloud OAuth 2.0 **Web application**
-  client ID. Empty by default, which disables Google sign-in; the rest of the
-  app is unaffected, since sign-in only adds backup.
+  client ID. Empty by default, which disables Google sign-in; nothing else in
+  the app depends on it.
 - `billing_product_id` — the Play Console in-app product ID for the widget
   unlock. Defaults to `widgets_unlock`.
 
@@ -85,7 +85,7 @@ data/health/ Health Connect client and the sync service
 data/billing/ Play Billing for the one-time unlock
 data/ads/    The single banner
 ui/          Compose screens, the chart, and the design tokens of section 12
-widget/      Five Glance widgets and the bitmap painter for rings and sparklines
+widget/      The Glance widgets and the bitmap painter for rings and sparklines
 work/        The daily sync worker and the reminder alarm
 ```
 
