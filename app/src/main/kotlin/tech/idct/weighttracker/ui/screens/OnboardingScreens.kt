@@ -86,7 +86,7 @@ fun OnboardingScreen(
                 Bullet(
                     WtIcons.ShowChart,
                     "Charts and widgets",
-                    "The clearest weight chart you'll find, and five home-screen widget sizes to match.",
+                    "The clearest weight chart you'll find, and a home-screen widget for every corner.",
                 )
                 Bullet(
                     WtIcons.Lock,

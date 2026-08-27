@@ -49,7 +49,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Live in-app previews of the five widget sizes, drawn from the same plan and
+ * Live in-app previews of the widget sizes, drawn from the same plan and
  * history the placed widgets read.
  */
 
@@ -368,7 +368,7 @@ fun BigWidgetPreview(
                 Spacer(Modifier.width(6.dp))
                 Text(unit.label, style = TextStyle(fontSize = 12.sp), color = colors.muted)
                 Spacer(Modifier.weight(1f))
-                if (stats.dated) {
+                if (stats.scheduleStarted) {
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(11.dp))
@@ -437,9 +437,50 @@ private fun StatCell(
 fun GlanceWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier = Modifier) {
     val colors = WtTheme.colors
     val shape = RoundedCornerShape(18.dp)
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
+            .height(80.dp)
+            .clip(shape)
+            .background(colors.surface)
+            .border(WtDimens.hairline, colors.outline, shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            ProgressRing(stats.progress, diameter = 36.dp, stroke = 4.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(
+                    Units.formatWithUnit(stats.currentKg, unit),
+                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                    color = colors.onSurface,
+                )
+                Text(
+                    "${Units.formatWithUnit(stats.leftKg, unit)} left",
+                    style = TextStyle(fontSize = 11.5.sp),
+                    color = colors.muted,
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Text(
+                Format.percent(stats),
+                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                color = WtTheme.accent,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        WtProgressBar(stats.progress)
+    }
+}
+
+@Composable
+fun GlanceCompactWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier = Modifier) {
+    val colors = WtTheme.colors
+    val shape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = modifier
+            .width(186.dp)
             .height(64.dp)
             .clip(shape)
             .background(colors.surface)
@@ -447,8 +488,8 @@ fun GlanceWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier =
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        ProgressRing(stats.progress, diameter = 40.dp, stroke = 4.5.dp)
-        Spacer(Modifier.width(12.dp))
+        ProgressRing(stats.progress, diameter = 36.dp, stroke = 4.dp)
+        Spacer(Modifier.width(10.dp))
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(
                 Units.formatWithUnit(stats.currentKg, unit),
@@ -456,16 +497,10 @@ fun GlanceWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier =
                 color = colors.onSurface,
             )
             Text(
-                "${Units.formatWithUnit(stats.leftKg, unit)} left",
+                "${Format.percent(stats)} of plan",
                 style = TextStyle(fontSize = 11.5.sp),
-                color = colors.muted,
+                color = WtTheme.accent,
             )
         }
-        Spacer(Modifier.weight(1f))
-        Text(
-            Format.percent(stats),
-            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium),
-            color = WtTheme.accent,
-        )
     }
 }

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="110dp"
+    android:layout_height="60dp"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="12dp"
+    android:background="@drawable/widget_preview_bg">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="79.2 kg" android:textSize="14sp" android:textStyle="bold"
+        android:textColor="@color/widget_preview_on_surface" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="43% of plan" android:textSize="10sp"
+        android:textColor="@color/widget_preview_accent" />
+</LinearLayout>

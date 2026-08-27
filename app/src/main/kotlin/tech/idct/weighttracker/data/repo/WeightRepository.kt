@@ -40,16 +40,33 @@ class WeightRepository(private val db: AppDatabase) {
      * their mind about that day.
      */
     suspend fun saveManualEntry(date: LocalDate, kg: Float) {
+        val rounded = Units.roundKg(kg)
         db.tombstones().clear(date.toEpochDay())
         db.entries().upsert(
             EntryRow(
                 date = date.toEpochDay(),
-                kg = Units.roundKg(kg),
+                kg = rounded,
                 source = EntrySource.MANUAL,
                 hcRecordId = null,
                 recordedAt = System.currentTimeMillis(),
             )
         )
+        repinPlanStartIfToday(date, rounded)
+    }
+
+    /**
+     * §3 pins the plan's start "when the plan is created". The pin settles at the end
+     * of that day: a weight logged on the start date IS the starting weight, so the
+     * plan line follows it. From the next day on the start is frozen, and the schedule
+     * is measured against it.
+     */
+    private suspend fun repinPlanStartIfToday(date: LocalDate, kg: Float) {
+        val today = LocalDate.now()
+        if (date != today) return
+        val plan = db.plans().get() ?: return
+        if (plan.startDate != today.toEpochDay()) return
+        if (plan.startKg == kg) return
+        db.plans().put(plan.copy(startKg = kg))
     }
 
     /**

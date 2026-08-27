@@ -45,6 +45,12 @@ data class PlanStats(
     val weekChangeKg: Float?,
     /** §13: target date in the past suppresses the daily rate and invites an edit. */
     val targetDatePassed: Boolean,
+    /**
+     * Whether the schedule has actually run. False on the day the plan is created:
+     * the start weight is that day's weight, so there is nothing yet to be ahead or
+     * behind of.
+     */
+    val scheduleStarted: Boolean,
 ) {
     val targetKg: Float get() = plan.targetKg
     val startKg: Float get() = plan.startKg
@@ -124,8 +130,12 @@ object PlanMath {
         val currentKg = last?.kg ?: plan.startKg
         val planToday = planKgAt(plan, daysSince)
 
-        val aheadKg = if (dated) (planToday - currentKg) * direction else 0f
-        val behind = dated && aheadKg < -BEHIND_THRESHOLD_KG
+        // Day zero is the baseline, not a day of the schedule. The plan takes whatever
+        // the user weighs today as its starting point and only begins asking for
+        // progress tomorrow, so a plan set this morning cannot already be behind.
+        val scheduleStarted = dated && daysSince > 0
+        val aheadKg = if (scheduleStarted) (planToday - currentKg) * direction else 0f
+        val behind = scheduleStarted && aheadKg < -BEHIND_THRESHOLD_KG
 
         val lostKg = (plan.startKg - currentKg) * direction
         val leftKg = max(0f, (currentKg - plan.targetKg) * direction)
@@ -187,6 +197,7 @@ object PlanMath {
             progress = progress,
             weekChangeKg = weekChange,
             targetDatePassed = targetDatePassed,
+            scheduleStarted = scheduleStarted,
         )
     }
 

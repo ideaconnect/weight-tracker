@@ -79,7 +79,7 @@ fun DialogScaffold(
 /**
  * Section 8 Locked behaviour: tapping a locked preview opens a dialog that names
  * the widget, says it needs the one-time unlock, notes that the unlock covers all
- * five sizes and removes ads, and offers the purchase.
+ * sizes and removes ads, and offers the purchase.
  */
 @Composable
 fun WidgetInfoDialog(
@@ -115,7 +115,7 @@ fun WidgetInfoDialog(
                 "It reads the same plan and updates after every sync, manual or background."
             } else {
                 "The ${kind.title} needs the one-time unlock before it can go on your home " +
-                    "screen. The unlock covers all five sizes and removes the ad banner."
+                    "screen. The unlock covers every size and removes the ad banner."
             },
             style = TextStyle(fontSize = 13.5.sp, lineHeight = 21.sp),
             color = colors.muted,

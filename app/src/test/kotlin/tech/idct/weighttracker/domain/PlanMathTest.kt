@@ -258,6 +258,46 @@ class PlanMathTest {
     }
 
     @Test
+    fun `the schedule only starts asking from the day after the start`() {
+        val plan = PlanMath.newPlan(
+            today, 82.4f, 75.0f, PlanMode.BY_DATE, today.plusDays(90), null,
+        )
+
+        // Day zero takes today's weight as the baseline, whatever it is. Even a reading
+        // above the pinned start cannot make a plan set this morning read as behind.
+        val dayZero = PlanMath.stats(
+            plan,
+            listOf(WeightEntry(today, 83.0f, EntrySource.MANUAL)),
+            today,
+        )
+        assertFalse("day zero is the baseline, not a day of the schedule", dayZero.scheduleStarted)
+        assertEquals(0f, dayZero.aheadKg, 0f)
+        assertFalse(dayZero.behind)
+
+        // From the next day the schedule is live and measures normally.
+        val dayOne = PlanMath.stats(
+            plan,
+            listOf(
+                WeightEntry(today, 82.4f, EntrySource.MANUAL),
+                WeightEntry(today.plusDays(1), 82.4f, EntrySource.MANUAL),
+            ),
+            today.plusDays(1),
+        )
+        assertTrue(dayOne.scheduleStarted)
+        // One day of a 7.4 kg / 90 day plan is 0.082 kg, so standing still is behind.
+        assertEquals(-0.082f, dayOne.aheadKg, 0.002f)
+        assertTrue(dayOne.behind)
+    }
+
+    @Test
+    fun `an open-ended plan never reports a schedule`() {
+        val open = PlanMath.newPlan(today, 82.4f, 75.0f, PlanMode.NO_DEADLINE, null, null)
+        val stats = PlanMath.stats(open, sampleEntries, today.plusDays(10))
+        assertFalse(stats.scheduleStarted)
+        assertFalse(stats.behind)
+    }
+
+    @Test
     fun `an at-pace plan created today also starts today`() {
         val plan = PlanMath.newPlan(
             today = today,

@@ -24,6 +24,7 @@ object WidgetUpdater {
         ChartWidget(),
         BigWidget(),
         GlanceWidget(),
+        GlanceCompactWidget(),
     )
 
     suspend fun updateAll(context: Context) {
@@ -33,7 +34,7 @@ object WidgetUpdater {
         }
     }
 
-    /** Whether any of the five sizes is currently placed on a home screen. */
+    /** Whether any size is currently placed on a home screen. */
     suspend fun placedCount(context: Context): Int {
         val manager = GlanceAppWidgetManager(context)
         return widgets.sumOf { runCatching { manager.getGlanceIds(it::class.java).size }.getOrDefault(0) }
@@ -58,7 +59,7 @@ object WidgetUpdater {
     }
 }
 
-/** The five sizes, in the order the widget gallery lists them. */
+/** The sizes, in the order the widget gallery lists them. */
 enum class WidgetKind(
     val title: String,
     val sizeLabel: String,
@@ -68,5 +69,10 @@ enum class WidgetKind(
     BAR("4×2 progress bar", "4×2 · Progress bar", BarWidgetReceiver::class.java),
     CHART("4×2 chart", "4×2 · Chart", ChartWidgetReceiver::class.java),
     BIG("4×4 chart + stats", "4×4 · Chart + stats", BigWidgetReceiver::class.java),
-    GLANCE("lock screen glance", "Lock screen · glance", GlanceWidgetReceiver::class.java),
+    GLANCE("wide lock screen glance", "Lock screen · glance, 4×1", GlanceWidgetReceiver::class.java),
+    GLANCE_COMPACT(
+        "compact lock screen glance",
+        "Lock screen · glance, 2×1",
+        GlanceCompactWidgetReceiver::class.java,
+    ),
 }

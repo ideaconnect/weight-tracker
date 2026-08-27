@@ -94,7 +94,7 @@ fun HomeScreen(
                         color = colors.onSurface,
                     )
                     Text(unit.label, style = TextStyle(fontSize = 13.sp), color = colors.muted)
-                    if (stats != null && stats.dated) {
+                    if (stats != null && stats.scheduleStarted) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(11.dp))

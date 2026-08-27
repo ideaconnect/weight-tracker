@@ -42,6 +42,8 @@ object Format {
 
     fun aheadLine(stats: PlanStats, unit: WeightUnit): String = when {
         !stats.dated -> "No deadline set"
+        // Day zero: the plan is taking today's weight as its baseline.
+        !stats.scheduleStarted -> "Starts from today"
         stats.aheadKg >= 0 -> "${Units.formatWithUnit(stats.aheadKg, unit)} ahead"
         else -> "${Units.formatWithUnit(-stats.aheadKg, unit)} behind"
     }

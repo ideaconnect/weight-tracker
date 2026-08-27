@@ -15,7 +15,7 @@ import tech.idct.weighttracker.domain.WeightUnit
 import java.time.LocalDate
 
 /**
- * One read of the local database, shared by all five widget sizes. Each reads the
+ * One read of the local database, shared by every widget size. Each reads the
  * same local data and needs no network (section 8).
  */
 data class WidgetData(

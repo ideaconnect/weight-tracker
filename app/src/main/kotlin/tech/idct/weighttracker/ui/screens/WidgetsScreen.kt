@@ -39,7 +39,7 @@ import tech.idct.weighttracker.ui.theme.WtTheme
 import tech.idct.weighttracker.widget.WidgetKind
 
 /**
- * Section 7 Widgets: live previews of all five widgets on a wallpaper backdrop,
+ * Section 7 Widgets: live previews of every widget on a wallpaper backdrop,
  * each labelled with its size and marked Locked until purchase. Tapping any
  * preview opens the explainer dialog.
  */
@@ -147,6 +147,9 @@ fun WidgetsScreen(
         }
         WidgetSection(WidgetKind.GLANCE, locked, onTapWidget) {
             GlanceWidgetPreview(stats, unit)
+        }
+        WidgetSection(WidgetKind.GLANCE_COMPACT, locked, onTapWidget) {
+            GlanceCompactWidgetPreview(stats, unit)
         }
 
         Spacer(Modifier.height(4.dp))

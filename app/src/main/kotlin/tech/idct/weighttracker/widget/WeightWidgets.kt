@@ -91,7 +91,7 @@ private fun launchIntent(context: Context, locked: Boolean): Intent =
     }
 
 /**
- * The five widget sizes of section 8. All sit behind the one-time purchase; a
+ * The widget sizes of section 8. All sit behind the one-time purchase; a
  * widget placed while locked renders a small locked state with a tap-to-unlock
  * action rather than stale data.
  */
@@ -566,7 +566,7 @@ class BigWidget : BaseWeightWidget() {
                     ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
-                if (stats.dated) {
+                if (stats.scheduleStarted) {
                     Box(
                         modifier = GlanceModifier
                             .background(Color(palette.surfaceAlt))
@@ -637,19 +637,94 @@ class BigWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget get() = BigWidget()
 }
 
-// ---- lock screen glance ----------------------------------------------------
+// ---- lock screen glance, wide ----------------------------------------------
 
+/**
+ * §8's lock-screen glance, in the width a launcher usually hands a 4x1: the ring and
+ * the figures on one line, and the plan's progress bar filling the row beneath rather
+ * than leaving the space empty.
+ */
 class GlanceWidget : BaseWeightWidget() {
+    @Composable
+    override fun Content(data: WidgetData, palette: WidgetPalette) {
+        val stats = data.stats!!
+        val density = LocalContext.current.resources.displayMetrics.density
+        val c = cell(designContentHeightDp = 44f)
+
+        val trackH = c.stroke(6f)
+        val gap = c.space(8f)
+        // The ring shares the height with the bar, so it is sized against what is left.
+        val diameter = (c.height - trackH - gap).coerceIn(26f, 44f)
+
+        Column(
+            modifier = GlanceModifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    provider = ImageProvider(
+                        WidgetPainter.ring(
+                            (diameter * density).roundToInt(),
+                            diameter * 0.118f * density,
+                            stats.progress,
+                            palette,
+                        )
+                    ),
+                    contentDescription = null,
+                    modifier = GlanceModifier.size(diameter.dp),
+                )
+                Spacer(GlanceModifier.width(12.dp))
+                Column {
+                    Text(
+                        Units.formatWithUnit(stats.currentKg, data.unit),
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.onSurface)),
+                            fontSize = c.text(15f).sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    )
+                    Text(
+                        remainingLabel(stats, data),
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.muted)),
+                            fontSize = c.text(11.5f).sp,
+                        ),
+                    )
+                }
+                Spacer(GlanceModifier.defaultWeight())
+                Text(
+                    pctLabel(stats),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.accent)),
+                        fontSize = c.text(15f).sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                )
+            }
+            Spacer(GlanceModifier.height(gap.dp))
+            ProgressTrack(stats.progress, palette, height = trackH.roundToInt().coerceAtLeast(4))
+        }
+    }
+}
+
+class GlanceWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget get() = GlanceWidget()
+}
+
+// ---- lock screen glance, compact -------------------------------------------
+
+/**
+ * The same glance at half the width, for anyone who would rather not give a whole row
+ * to it. Ring, weight, percentage — nothing that needs the space the wide one uses.
+ */
+class GlanceCompactWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
         val density = LocalContext.current.resources.displayMetrics.density
         val c = cell(designContentHeightDp = 36f)
 
-        val diameter = c.height.coerceIn(28f, 46f)
-        // The figures are pushed to the two ends rather than bunched against the ring,
-        // so the strip reads as deliberate at whatever width the launcher gives it
-        // instead of trailing off into empty space on the right.
+        val diameter = c.height.coerceIn(26f, 44f)
         Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 provider = ImageProvider(
@@ -663,7 +738,7 @@ class GlanceWidget : BaseWeightWidget() {
                 contentDescription = null,
                 modifier = GlanceModifier.size(diameter.dp),
             )
-            Spacer(GlanceModifier.width(12.dp))
+            Spacer(GlanceModifier.width(10.dp))
             Column {
                 Text(
                     Units.formatWithUnit(stats.currentKg, data.unit),
@@ -674,28 +749,19 @@ class GlanceWidget : BaseWeightWidget() {
                     ),
                 )
                 Text(
-                    remainingLabel(stats, data),
+                    pctLabel(stats) + " of plan",
                     style = TextStyle(
-                        color = ColorProvider(Color(palette.muted)),
+                        color = ColorProvider(Color(palette.accent)),
                         fontSize = c.text(11.5f).sp,
                     ),
                 )
             }
-            Spacer(GlanceModifier.defaultWeight())
-            Text(
-                pctLabel(stats),
-                style = TextStyle(
-                    color = ColorProvider(Color(palette.accent)),
-                    fontSize = c.text(15f).sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-            )
         }
     }
 }
 
-class GlanceWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget get() = GlanceWidget()
+class GlanceCompactWidgetReceiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget get() = GlanceCompactWidget()
 }
 
 // ---- shared labels ---------------------------------------------------------

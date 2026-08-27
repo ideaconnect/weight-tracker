@@ -341,7 +341,7 @@ fun PaywallSheet(
             .border(WtDimens.hairline, colors.outline, RoundedCornerShape(WtDimens.cardRadius)),
         verticalArrangement = Arrangement.spacedBy(WtDimens.hairline),
     ) {
-        listOf("All five widget sizes", "No ad banner", "Lock screen glance").forEach { line ->
+        listOf("Every widget size", "No ad banner", "Lock screen glance").forEach { line ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

@@ -25,7 +25,7 @@ import tech.idct.weighttracker.data.repo.WeightRepository
 import tech.idct.weighttracker.widget.WidgetUpdater
 
 /**
- * Section 10: one non-consumable product unlocks all five widgets and removes the
+ * Section 10: one non-consumable product unlocks every widget and removes the
  * banner permanently. No subscriptions, no tiers.
  *
  * Section 3: the entitlement is cached locally and re-verified against Play Billing
