@@ -171,7 +171,14 @@ fun PlanScreen(
             Spacer(Modifier.height(16.dp))
 
             WtRowGroup(radius = WtDimens.rowRadius) {
-                StatLine("Lost so far", Units.formatWithUnit(stats.lostKg, unit), valueColor = colors.onTrack)
+                // A gain leaves this negative, and a loss-coloured negative reads as a
+                // contradiction next to an amber chart. Sign and colour follow the number.
+                StatLine(
+                    "Lost so far",
+                    if (stats.lostKg < 0f) "\u2212" + Units.formatWithUnit(-stats.lostKg, unit)
+                    else Units.formatWithUnit(stats.lostKg, unit),
+                    valueColor = if (stats.lostKg < 0f) colors.behind else colors.onTrack,
+                )
                 StatLine("Left to go", Units.formatWithUnit(stats.leftKg, unit))
                 StatLine(
                     "Needed per day",

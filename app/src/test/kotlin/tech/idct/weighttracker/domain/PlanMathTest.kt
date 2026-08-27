@@ -137,6 +137,56 @@ class PlanMathTest {
     }
 
     @Test
+    fun `the target date itself has not passed`() {
+        val onTheDay = PlanMath.stats(samplePlan, sampleEntries, LocalDate.of(2026, 11, 30))
+        assertFalse("the deadline day is still the deadline", onTheDay.targetDatePassed)
+        assertTrue(onTheDay.hasRate)
+
+        val dayAfter = PlanMath.stats(samplePlan, sampleEntries, LocalDate.of(2026, 12, 1))
+        assertTrue(dayAfter.targetDatePassed)
+        assertFalse(dayAfter.hasRate)
+    }
+
+    // "Last 7 days" -------------------------------------------------------
+
+    @Test
+    fun `the weekly change spans about a week`() {
+        val entries = listOf(
+            WeightEntry(today.minusDays(8), 80.0f, EntrySource.MANUAL),
+            WeightEntry(today, 79.2f, EntrySource.MANUAL),
+        )
+        val stats = PlanMath.stats(samplePlan, entries, today)
+        assertEquals(0.8f, stats.weekChangeKg!!, 0.001f)
+    }
+
+    @Test
+    fun `a logging gap does not masquerade as a week`() {
+        // 26 days apart. Reporting this as "Last 7 days" would overstate the week
+        // by more than three times.
+        val entries = listOf(
+            WeightEntry(today.minusDays(26), 82.0f, EntrySource.MANUAL),
+            WeightEntry(today, 79.2f, EntrySource.MANUAL),
+        )
+        assertNull(PlanMath.stats(samplePlan, entries, today).weekChangeKg)
+    }
+
+    @Test
+    fun `a stale history reports no weekly change at all`() {
+        // Logged daily, then stopped seventeen days ago.
+        val entries = (0..7).map {
+            WeightEntry(today.minusDays(24L - it), 81.0f - it * 0.1f, EntrySource.MANUAL)
+        }
+        assertNull(PlanMath.stats(samplePlan, entries, today).weekChangeKg)
+    }
+
+    @Test
+    fun `the at-pace preview date is the date the plan derives`() {
+        // The edit screen asks PlanMath for this, so the two can no longer disagree.
+        val plan = PlanMath.newPlan(today, 82.4f, 75.0f, PlanMode.AT_PACE, null, 0.34f)
+        assertEquals(PlanMath.targetDate(plan), today.plusDays(PlanMath.spanDays(plan).toLong()))
+    }
+
+    @Test
     fun `the plan line stops at the target after the target date`() {
         assertEquals(75.0f, PlanMath.planKgAt(samplePlan, 300), 0.001f)
     }

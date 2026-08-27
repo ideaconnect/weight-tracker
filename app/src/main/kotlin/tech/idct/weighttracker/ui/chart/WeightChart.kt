@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +58,8 @@ import tech.idct.weighttracker.ui.theme.WtTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -133,7 +136,15 @@ fun WeightChart(
     // Overlay positions, measured against the laid-out size.
     fun xOf(day: Float): Float = xIn(w, day)
     fun yOf(kg: Float): Float = yIn(h, kg)
-    fun dayAt(px: Float): Float = win.x0 + (px - axOf(w)) / awOf(w) * win.width
+
+    // The gesture handler installed below outlives the composition that created it,
+    // so it must read the window and the measured width at call time rather than
+    // capturing them. Capturing froze it to the first composition, where the width
+    // was still zero: every scrub divided by zero and resolved to the oldest entry.
+    // Keying pointerInput on `win` was no fix either, because a pinch mutates `win`
+    // on every step and so restarted the block mid-gesture.
+    val liveWindow = rememberUpdatedState(win)
+    val liveWidth = rememberUpdatedState(w)
 
     val scrubEntry = scrubDay?.let { d -> entryDays.minByOrNull { abs(it.first - d) } }
 
@@ -144,7 +155,13 @@ fun WeightChart(
                     .fillMaxWidth()
                     .aspectRatio(331f / 206f)
                     .onSizeChanged { plotSize = it }
-                    .pointerInput(win, entryDays) {
+                    .pointerInput(Unit) {
+                        fun dayAt(px: Float): Float {
+                            val window = liveWindow.value
+                            val width = liveWidth.value
+                            if (width <= 0f) return window.x0
+                            return window.x0 + (px - axOf(width)) / awOf(width) * window.width
+                        }
                         awaitEachGesture {
                             val first = awaitFirstDown(requireUnconsumed = false)
                             var pinchStartDistance = 0f
@@ -239,9 +256,10 @@ fun WeightChart(
                         ((xEnd - lastDay) / (finishDay - lastDay)).coerceIn(0f, 1f)
                     } else 1f
                     val yEnd = stats.currentKg + (plan.targetKg - stats.currentKg) * f
+                    val trendFrom = entryDays.lastOrNull()?.first?.toFloat() ?: lastDay.toFloat()
                     drawLine(
                         color = colors.onSurface,
-                        start = Offset(xOf(lastDay.toFloat()), yOf(stats.currentKg)),
+                        start = Offset(xOf(trendFrom), yOf(stats.currentKg)),
                         end = Offset(xOf(xEnd), yOf(yEnd)),
                         strokeWidth = 1.2f * density.density,
                         pathEffect = PathEffect.dashPathEffect(
@@ -281,11 +299,14 @@ fun WeightChart(
                 )
 
                 // A filled dot on the latest reading, a hollow ring on the target.
-                if (entryDays.isNotEmpty()) {
+                // Anchored to the entry's own day, not to `lastDay` — that is today
+                // whenever today has not been logged, which left the dot floating to
+                // the right of the line it is supposed to cap.
+                entryDays.lastOrNull()?.let { (lastEntryDay, lastEntry) ->
                     drawCircle(
                         accent,
                         radius = 4f * density.density,
-                        center = Offset(xOf(lastDay.toFloat()), yOf(stats.currentKg)),
+                        center = Offset(xOf(lastEntryDay.toFloat()), yOf(lastEntry.kg)),
                     )
                 }
                 val targetX = if (dated && span > 0) span.toFloat() else win.x1 - 6f
@@ -517,18 +538,37 @@ private fun computeYDomain(
     plan: Plan,
     stats: PlanStats,
 ): YDomain {
-    var lo = min(plan.targetKg, PlanMath.planKgAt(plan, win.x1.roundToInt()))
-    var hi = plan.startKg
-    entryDays.forEach { (day, entry) ->
-        if (day >= win.x0 - 1 && day <= win.x1 + 1) {
-            lo = min(lo, entry.kg)
-            hi = max(hi, entry.kg)
-        }
+    var lo = Float.MAX_VALUE
+    var hi = -Float.MAX_VALUE
+    fun include(v: Float) {
+        lo = min(lo, v)
+        hi = max(hi, v)
     }
+
+    // The plan line where it crosses the visible window, and its tolerance band.
+    val planAtStart = PlanMath.planKgAt(plan, floor(win.x0).toInt())
+    val planAtEnd = PlanMath.planKgAt(plan, ceil(win.x1).toInt())
+    include(planAtStart)
+    include(planAtEnd)
     if (stats.dated) {
-        lo = min(lo, plan.targetKg - PlanMath.TOLERANCE_KG)
-        hi = max(hi, plan.startKg + PlanMath.TOLERANCE_KG)
+        include(min(planAtStart, planAtEnd) - PlanMath.TOLERANCE_KG)
+        include(max(planAtStart, planAtEnd) + PlanMath.TOLERANCE_KG)
     }
+
+    // The goal marker, but only when it is actually in view.
+    val targetDay = if (stats.dated && stats.spanDays > 0) stats.spanDays.toFloat() else win.x1 - 6f
+    if (targetDay >= win.x0 && targetDay <= win.x1) include(plan.targetKg)
+
+    entryDays.forEach { (day, entry) ->
+        if (day >= win.x0 - 1 && day <= win.x1 + 1) include(entry.kg)
+    }
+
+    // Nothing visible at all: fall back to framing the plan itself.
+    if (lo > hi) {
+        include(plan.startKg)
+        include(plan.targetKg)
+    }
+
     val pad = max(0.7f, (hi - lo) * 0.14f)
     return YDomain(lo - pad, hi + pad)
 }

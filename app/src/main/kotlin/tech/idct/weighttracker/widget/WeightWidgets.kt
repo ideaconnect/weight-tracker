@@ -534,7 +534,7 @@ class BigWidget : BaseWeightWidget() {
         // Every other row has a known height, so the chart takes the remainder — the
         // whole design grows with the cell rather than sitting in the top of it.
         val fixed = headerSp * 1.4f + gap * 3f + trackH + tileH
-        val chartH = (c.height - fixed).coerceIn(56f, c.width / 1.5f)
+        val chartH = (c.height - fixed).coerceIn(72f, c.width / 1.2f)
 
         Column(modifier = GlanceModifier.fillMaxSize()) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
@@ -583,6 +583,8 @@ class BigWidget : BaseWeightWidget() {
                         stats = stats,
                         palette = palette,
                         density = density,
+                        // Big enough to carry a scale, so the line can be read.
+                        axes = WidgetPainter.Axes(data.unit, textSp = c.text(9.5f)),
                     )
                 ),
                 contentDescription = null,
@@ -633,7 +635,9 @@ class GlanceWidget : BaseWeightWidget() {
         val density = LocalContext.current.resources.displayMetrics.density
         val c = cell(designContentHeightDp = 36f)
 
-        val diameter = c.height.coerceIn(28f, 72f)
+        // Kept close to the design's 34 dp. Letting it grow with the cell made the
+        // ring dominate a strip whose whole job is one line of text.
+        val diameter = c.height.coerceIn(28f, 46f)
         Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 provider = ImageProvider(

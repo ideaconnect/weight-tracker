@@ -42,6 +42,8 @@ import tech.idct.weighttracker.ui.theme.RobotoMono
 import tech.idct.weighttracker.ui.theme.WtDimens
 import tech.idct.weighttracker.ui.theme.WtTheme
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import kotlin.math.max
 import kotlin.math.min
@@ -97,9 +99,13 @@ fun Sparkline(
     stats: PlanStats,
     modifier: Modifier = Modifier,
     withBand: Boolean = true,
+    /** Gridlines and labels, to match what the placed 4x4 widget draws. */
+    axes: WeightUnit? = null,
 ) {
     val colors = WtTheme.colors
     val accent = WtTheme.accent
+    val measurer = rememberTextMeasurer()
+    val axisStyle = TextStyle(fontFamily = RobotoMono, fontSize = 9.5.sp, color = colors.muted)
     Canvas(modifier) {
         val plan = stats.plan
         val padX = 3.dp.toPx()
@@ -122,8 +128,41 @@ fun Sparkline(
             hi = max(hi, it.kg + 0.3f)
         }
 
-        fun x(day: Float) = padX + (day / xMax) * (size.width - 2 * padX)
-        fun y(kg: Float) = padY + (hi - kg) / (hi - lo) * (size.height - 2 * padY)
+        // Axes claim a left gutter and a bottom strip, exactly as WidgetPainter does.
+        val labelPx = if (axes != null) 9.5.sp.toPx() else 0f
+        val gutterL = if (axes != null) labelPx * 3.2f else 0f
+        val gutterB = if (axes != null) labelPx * 1.9f else 0f
+        val plotL = gutterL + padX
+        val plotR = size.width - padX
+        val plotT = padY
+        val plotB = size.height - gutterB - padY
+
+        fun x(day: Float) = plotL + (day / xMax) * (plotR - plotL)
+        fun y(kg: Float) = plotT + (hi - kg) / (hi - lo) * (plotB - plotT)
+
+        if (axes != null) {
+            val ticks = 4
+            val step = (hi - lo) / (ticks - 1)
+            for (i in 0 until ticks) {
+                val v = lo + step * i
+                val gy = y(v)
+                drawLine(colors.outline, Offset(plotL, gy), Offset(plotR, gy), strokeWidth = 1f)
+                val layout = measurer.measure(Units.format(v, axes), axisStyle)
+                drawText(
+                    layout,
+                    topLeft = Offset(plotL - layout.size.width - 3.dp.toPx(), gy - layout.size.height / 2f),
+                )
+            }
+            for (i in 0 until 3) {
+                val day = xMax * (i + 0.5f) / 3f
+                val date = plan.startDate.plusDays(day.toLong())
+                val layout = measurer.measure(date.format(Format.monthDay), axisStyle)
+                drawText(
+                    layout,
+                    topLeft = Offset(x(day) - layout.size.width / 2f, size.height - layout.size.height),
+                )
+            }
+        }
 
         if (stats.dated && withBand) {
             val band = Path().apply {
@@ -340,7 +379,7 @@ fun BigWidgetPreview(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Sparkline(entries, stats, Modifier.fillMaxWidth().height(96.dp))
+            Sparkline(entries, stats, Modifier.fillMaxWidth().height(120.dp), axes = unit)
             Spacer(Modifier.height(12.dp))
             WtProgressBar(stats.progress)
             Spacer(Modifier.height(12.dp))

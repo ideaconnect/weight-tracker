@@ -87,11 +87,18 @@ fun PlanEditScreen(
     val startKg = if (mustAskForStart) startKgInput else derivedStartKg!!
     val currentKg = state.currentKg ?: startKg
     val today = state.today
+    /** Where the plan line begins: pinned for an existing plan, today for a new one. */
+    val planStart = plan?.startDate ?: today
 
     var targetKg by remember { mutableFloatStateOf(plan?.targetKg ?: (startKg - 5f)) }
     var mode by remember { mutableStateOf(plan?.mode ?: PlanMode.BY_DATE) }
+    // Never adopt a stored date that has already gone by. §13 routes users here
+    // precisely because the target date has passed, and offering it back as the
+    // selected option made every derived figure divide by a clamped single day.
     var targetDate by remember {
-        mutableStateOf(plan?.targetDate ?: defaultDateOptions(today).first())
+        mutableStateOf(
+            plan?.targetDate?.takeIf { it.isAfter(today) } ?: defaultDateOptions(today).first()
+        )
     }
     var ratePerWeek by remember { mutableFloatStateOf(plan?.ratePerWeek ?: 0.34f) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -231,8 +238,12 @@ fun PlanEditScreen(
 
         when (mode) {
             PlanMode.BY_DATE -> {
+                // Two different figures, and they are not interchangeable: what the user
+                // must do from today, and what the plan line itself runs at.
                 val days = max(1, ChronoUnit.DAYS.between(today, targetDate).toInt())
                 val impliedPerDay = abs(currentKg - targetKg) / days
+                val planSpan = max(1, ChronoUnit.DAYS.between(planStart, targetDate).toInt())
+                val planPerDay = abs(startKg - targetKg) / planSpan
                 Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(
                         "Reach it by",
@@ -242,8 +253,11 @@ fun PlanEditScreen(
                     )
                     WtCard(contentPadding = 8.dp) {
                         dateOptions.forEach { option ->
-                            val optionDays = max(1, ChronoUnit.DAYS.between(today, option).toInt())
-                            val perWeek = abs(currentKg - targetKg) / optionDays * 7f
+                            // From the PINNED origin, because that is what the dashed plan
+                            // line is drawn from. Measuring from today instead quotes a
+                            // pace the chart never draws once any progress has been made.
+                            val optionSpan = max(1, ChronoUnit.DAYS.between(planStart, option).toInt())
+                            val perWeek = abs(startKg - targetKg) / optionSpan * 7f
                             DateOptionRow(
                                 date = option.format(Format.isoDate),
                                 note = "${Units.format(perWeek, unit, 2)} ${unit.label}/wk",
@@ -266,8 +280,8 @@ fun PlanEditScreen(
                         )
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "That is ${Units.format(impliedPerDay * 7f, unit, 2)} ${unit.label} a week, " +
-                                "drawn on the chart as the dashed plan line.",
+                            "The plan line runs at ${Units.format(planPerDay * 7f, unit, 2)} " +
+                                "${unit.label} a week, drawn on the chart as the dashed line.",
                             style = TextStyle(fontSize = 12.5.sp, lineHeight = 19.sp),
                             color = colors.muted,
                         )
@@ -276,9 +290,19 @@ fun PlanEditScreen(
             }
 
             PlanMode.AT_PACE -> {
-                val perDay = ratePerWeek / 7f
-                val impliedDays = if (perDay <= 0f) 0 else (abs(startKg - targetKg) / perDay).toInt()
-                val impliedDate = (plan?.startDate ?: today).plusDays(impliedDays.toLong())
+                // Asked of PlanMath rather than recomputed, so the date previewed here is
+                // the date the saved plan derives. Truncating where PlanMath rounds put
+                // the preview a day early.
+                val impliedDate = PlanMath.targetDate(
+                    PlanMath.newPlan(
+                        today = planStart,
+                        startKg = startKg,
+                        targetKg = targetKg,
+                        mode = PlanMode.AT_PACE,
+                        targetDate = null,
+                        ratePerWeek = ratePerWeek,
+                    )
+                ) ?: planStart
                 Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(
                         "Pace per week",

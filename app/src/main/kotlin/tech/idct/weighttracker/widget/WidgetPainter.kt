@@ -6,9 +6,13 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Typeface
 import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanStats
+import tech.idct.weighttracker.domain.Units
 import tech.idct.weighttracker.domain.WeightEntry
+import tech.idct.weighttracker.domain.WeightUnit
+import java.time.format.DateTimeFormatter
 import kotlin.math.max
 import kotlin.math.min
 
@@ -16,6 +20,8 @@ import kotlin.math.min
  * Glance lays out with RemoteViews, which cannot draw arbitrary paths, so the ring
  * and the sparklines are painted into bitmaps here and shown as images.
  */
+private val axisDate: DateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd")
+
 object WidgetPainter {
 
     /** The 2x2 and lock-screen rings: progress swept clockwise from twelve o'clock. */
@@ -48,6 +54,14 @@ object WidgetPainter {
      * The 4x2 and 4x4 sparklines: actual weight over the plan line and the
      * tolerance band, in the same layer order as the full chart.
      */
+    /**
+     * Gridlines and labels for the bigger widgets. A bare sparkline on a 4x4 tile is a
+     * squiggle with no scale to read it against; §6 gives the full chart weight labels
+     * in a left gutter and dates underneath, and at this size the widget can afford
+     * the same.
+     */
+    class Axes(val unit: WeightUnit, val textSp: Float, val ticks: Int = 4, val dates: Int = 3)
+
     fun sparkline(
         widthPx: Int,
         heightPx: Int,
@@ -56,6 +70,7 @@ object WidgetPainter {
         palette: WidgetPalette,
         withBand: Boolean = true,
         density: Float = 1f,
+        axes: Axes? = null,
     ): Bitmap {
         val bitmap = Bitmap.createBitmap(max(1, widthPx), max(1, heightPx), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -82,8 +97,52 @@ object WidgetPainter {
             hi = max(hi, it.kg + 0.3f)
         }
 
-        fun x(day: Float) = padX + (day / xMax) * (widthPx - 2 * padX)
-        fun y(kg: Float) = padY + (hi - kg) / (hi - lo) * (heightPx - 2 * padY)
+        // Axes claim a left gutter for the weight labels and a strip underneath for
+        // the dates; without them the plot uses the whole bitmap as before.
+        val labelPx = (axes?.textSp ?: 0f) * density
+        val gutterL = if (axes != null) labelPx * 3.2f else 0f
+        val gutterB = if (axes != null) labelPx * 1.9f else 0f
+        val plotL = gutterL + padX
+        val plotR = widthPx - padX
+        val plotT = padY
+        val plotB = heightPx - gutterB - padY
+
+        fun x(day: Float) = plotL + (day / xMax) * (plotR - plotL)
+        fun y(kg: Float) = plotT + (hi - kg) / (hi - lo) * (plotB - plotT)
+
+        if (axes != null) {
+            val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = 1f * density
+                color = palette.outline
+            }
+            val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = palette.muted
+                textSize = labelPx
+                typeface = Typeface.MONOSPACE
+            }
+            val step = (hi - lo) / (axes.ticks - 1)
+            for (i in 0 until axes.ticks) {
+                val v = lo + step * i
+                val gy = y(v)
+                canvas.drawLine(plotL, gy, plotR, gy, gridPaint)
+                val label = Units.format(v, axes.unit)
+                labelPaint.textAlign = Paint.Align.RIGHT
+                canvas.drawLine(plotL, gy, plotR, gy, gridPaint)
+                canvas.drawText(label, plotL - 3f * density, gy + labelPx * 0.36f, labelPaint)
+            }
+            labelPaint.textAlign = Paint.Align.CENTER
+            for (i in 0 until axes.dates) {
+                val day = xMax * (i + 0.5f) / axes.dates
+                val date = plan.startDate.plusDays(day.toLong())
+                canvas.drawText(
+                    date.format(axisDate),
+                    x(day),
+                    heightPx - labelPx * 0.5f,
+                    labelPaint,
+                )
+            }
+        }
 
         if (stats.dated && withBand) {
             val band = Path().apply {

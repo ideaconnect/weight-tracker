@@ -130,7 +130,10 @@ object PlanMath {
         val lostKg = (plan.startKg - currentKg) * direction
         val leftKg = max(0f, (currentKg - plan.targetKg) * direction)
 
-        val targetDatePassed = dated && span > 0 && daysSince >= span
+        // The target date itself still counts: the plan has not lapsed until the day
+        // after it. `>=` retired the rate a day early and made the Plan screen invite
+        // an edit on the deadline morning.
+        val targetDatePassed = dated && span > 0 && daysSince > span
         val daysLeft = max(1, span - daysSince)
         val planRatePerDay = if (dated && span > 0) (plan.startKg - plan.targetKg) * direction / span else 0f
         val neededPerDay = if (dated && !targetDatePassed) leftKg / daysLeft else 0f
@@ -149,8 +152,15 @@ object PlanMath {
         val denom = (plan.startKg - plan.targetKg) * direction
         val progress = if (denom <= 0.05f) 0f else min(1f, max(0f, lostKg / denom))
 
-        val weekChange = last?.let { l ->
-            val ref = entries.lastOrNull { it.date <= l.date.minusDays(7) }
+        // "Last 7 days" has to span roughly seven days and end near today. The
+        // reference was previously bounded only from above, so the newest entry older
+        // than a week won whatever its age: a month's gap in logging silently became
+        // the measurement interval and a 26-day loss was published as a weekly one.
+        // With no entry in the window there is no honest figure, and null renders "—".
+        val weekChange = last?.takeIf { it.date >= today.minusDays(3) }?.let { l ->
+            val ref = entries.lastOrNull {
+                it.date <= l.date.minusDays(7) && it.date >= l.date.minusDays(11)
+            }
             if (ref == null) null else (ref.kg - l.kg) * direction
         }
 
