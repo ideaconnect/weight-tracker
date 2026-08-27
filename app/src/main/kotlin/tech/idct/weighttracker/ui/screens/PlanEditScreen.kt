@@ -36,6 +36,7 @@ import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanMode
 import tech.idct.weighttracker.domain.Units
 import tech.idct.weighttracker.ui.AppUiState
+import tech.idct.weighttracker.ui.DEFAULT_START_KG
 import tech.idct.weighttracker.ui.Format
 import tech.idct.weighttracker.ui.components.IconTapTarget
 import tech.idct.weighttracker.ui.components.PrimaryButton
@@ -65,13 +66,25 @@ import kotlin.math.max
 fun PlanEditScreen(
     state: AppUiState,
     onBack: () -> Unit,
-    onSave: (targetKg: Float, mode: PlanMode, targetDate: LocalDate?, ratePerWeek: Float?) -> Unit,
+    onSave: (
+        targetKg: Float,
+        mode: PlanMode,
+        targetDate: LocalDate?,
+        ratePerWeek: Float?,
+        startKg: Float,
+    ) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = WtTheme.colors
     val unit = state.settings.unit
     val plan = state.plan
-    val startKg = plan?.startKg ?: state.currentKg ?: 80f
+    // A new plan starts today at the weight the user is at today. With nothing logged
+    // yet there is nothing to derive that from, so the guess is shown and editable
+    // rather than silently baked into the plan line.
+    val derivedStartKg = plan?.startKg ?: state.currentKg
+    val mustAskForStart = derivedStartKg == null
+    var startKgInput by remember { mutableFloatStateOf(derivedStartKg ?: DEFAULT_START_KG) }
+    val startKg = if (mustAskForStart) startKgInput else derivedStartKg!!
     val currentKg = state.currentKg ?: startKg
     val today = state.today
 
@@ -149,6 +162,46 @@ fun PlanEditScreen(
                 color = if (error != null) colors.behind else colors.muted,
                 modifier = Modifier.padding(start = 4.dp),
             )
+        }
+
+        if (mustAskForStart) {
+            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text(
+                    "Starting weight",
+                    style = TextStyle(fontSize = 12.sp),
+                    color = colors.muted,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+                WtCard(contentPadding = 16.dp) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        StepperButton("−", { startKgInput = clampTarget(startKgInput - step) }, size = 40.dp)
+                        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                Units.format(startKgInput, unit),
+                                style = TextStyle(
+                                    fontSize = 26.sp,
+                                    fontWeight = FontWeight.Light,
+                                    letterSpacing = (-0.7).sp,
+                                ),
+                                color = colors.onSurface,
+                            )
+                            Text(unit.label, style = TextStyle(fontSize = 14.sp), color = colors.muted)
+                        }
+                        StepperButton("+", { startKgInput = clampTarget(startKgInput + step) }, size = 40.dp)
+                    }
+                }
+                Text(
+                    "Nothing logged yet, so the plan needs a starting point. Log a weight " +
+                        "and this follows it instead.",
+                    style = TextStyle(fontSize = 11.5.sp, lineHeight = 16.sp),
+                    color = colors.muted,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+            }
         }
 
         // Mode.
@@ -314,6 +367,7 @@ fun PlanEditScreen(
                     mode,
                     if (mode == PlanMode.BY_DATE) targetDate else null,
                     if (mode == PlanMode.AT_PACE) ratePerWeek else null,
+                    Units.roundKg(startKg),
                 )
             },
         )

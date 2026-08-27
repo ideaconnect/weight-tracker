@@ -50,6 +50,38 @@ private val isoShort: DateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd")
 /** Inset applied by [BaseWeightWidget] to every widget's content. */
 private val WIDGET_PADDING = 14.dp
 
+/**
+ * The space a widget was actually given, and how much bigger that is than the box the
+ * prototype drew it in.
+ *
+ * The prototype sizes the 4x2s at 110 dp tall and the 2x2 at 168 dp square. A real
+ * launcher cell is routinely half as tall again, or twice — on the test device a 4x2
+ * lands at roughly 386x213 dp. A layout that keeps its drawn size then floats in the
+ * middle of the cell with a third to a half of the widget empty, which is what this
+ * exists to stop.
+ */
+private class Cell(widthDp: Float, heightDp: Float, designContentHeightDp: Float) {
+    val width = (widthDp - WIDGET_PADDING.value * 2f).coerceAtLeast(1f)
+    val height = (heightDp - WIDGET_PADDING.value * 2f).coerceAtLeast(1f)
+
+    val scale = (height / designContentHeightDp).coerceIn(1f, 2.2f)
+
+    /** Type grows more slowly than the box, so the numbers keep their proportion. */
+    fun text(base: Float) = base * (1f + (scale - 1f) * 0.6f)
+
+    /** Gaps grow with the box. */
+    fun space(base: Float) = base * scale
+
+    /** Bars and strokes sit between the two. */
+    fun stroke(base: Float) = base * (1f + (scale - 1f) * 0.5f)
+}
+
+@Composable
+private fun cell(designContentHeightDp: Float): Cell {
+    val size = LocalSize.current
+    return Cell(size.width.value, size.height.value, designContentHeightDp)
+}
+
 /** Route the launcher tap: unlocked widgets open the app, locked ones the paywall. */
 private fun launchIntent(context: Context, locked: Boolean): Intent =
     Intent(context, MainActivity::class.java).apply {
@@ -174,20 +206,28 @@ private fun ProgressTrack(progress: Float, palette: WidgetPalette, height: Int =
 }
 
 @Composable
-private fun StatTile(label: String, value: String, palette: WidgetPalette, valueColor: Int = palette.onSurface) {
+private fun StatTile(
+    label: String,
+    value: String,
+    palette: WidgetPalette,
+    labelSp: Float = 10f,
+    valueSp: Float = 13f,
+    padV: Float = 10f,
+    valueColor: Int = palette.onSurface,
+) {
     Column(
         modifier = GlanceModifier
             .fillMaxWidth()
             .background(Color(palette.surfaceAlt))
-            .padding(horizontal = 11.dp, vertical = 10.dp)
+            .padding(horizontal = 11.dp, vertical = padV.dp)
     ) {
-        Text(label, style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 10.sp))
+        Text(label, style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = labelSp.sp))
         Spacer(GlanceModifier.height(2.dp))
         Text(
             value,
             style = TextStyle(
                 color = ColorProvider(Color(valueColor)),
-                fontSize = 13.sp,
+                fontSize = valueSp.sp,
                 fontWeight = FontWeight.Medium,
             ),
         )
@@ -205,9 +245,15 @@ class RingWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val context = LocalContext.current
-        val density = context.resources.displayMetrics.density
-        val ringPx = (88 * density).roundToInt()
+        val density = LocalContext.current.resources.displayMetrics.density
+        val c = cell(designContentHeightDp = 140f)
+
+        val labelSp = c.text(12f)
+        val gap = c.space(8f)
+        // The ring takes everything the cell leaves after the line beneath it.
+        val diameter = minOf(c.width, c.height - labelSp * 1.5f - gap).coerceIn(56f, 260f)
+        val stroke = diameter * 0.079f
+
         Column(
             modifier = GlanceModifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -216,30 +262,38 @@ class RingWidget : BaseWeightWidget() {
             Box(contentAlignment = Alignment.Center) {
                 Image(
                     provider = ImageProvider(
-                        WidgetPainter.ring(ringPx, 7f * density, stats.progress, palette)
+                        WidgetPainter.ring(
+                            (diameter * density).roundToInt(),
+                            stroke * density,
+                            stats.progress,
+                            palette,
+                        )
                     ),
                     contentDescription = null,
-                    modifier = GlanceModifier.size(88.dp),
+                    modifier = GlanceModifier.size(diameter.dp),
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         pctLabel(stats),
                         style = TextStyle(
                             color = ColorProvider(Color(palette.onSurface)),
-                            fontSize = 19.sp,
+                            fontSize = (diameter * 0.215f).sp,
                             fontWeight = FontWeight.Medium,
                         ),
                     )
                     Text(
                         "of plan",
-                        style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 9.sp),
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.muted)),
+                            fontSize = (diameter * 0.102f).sp,
+                        ),
                     )
                 }
             }
-            Spacer(GlanceModifier.height(8.dp))
+            Spacer(GlanceModifier.height(gap.dp))
             Text(
                 remainingLabel(stats, data),
-                style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 12.sp),
+                style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = labelSp.sp),
             )
         }
     }
@@ -255,6 +309,9 @@ class BarWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
+        val c = cell(designContentHeightDp = 78f)
+        val gap = c.space(11f)
+
         Column(
             modifier = GlanceModifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
@@ -264,42 +321,54 @@ class BarWidget : BaseWeightWidget() {
                     Units.format(stats.currentKg, data.unit),
                     style = TextStyle(
                         color = ColorProvider(Color(palette.onSurface)),
-                        fontSize = 24.sp,
+                        fontSize = c.text(24f).sp,
                         fontWeight = FontWeight.Medium,
                     ),
                 )
                 Spacer(GlanceModifier.width(6.dp))
                 Text(
                     data.unit.label,
-                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 12.sp),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = c.text(12f).sp,
+                    ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
                     pctLabel(stats),
                     style = TextStyle(
                         color = ColorProvider(Color(palette.accent)),
-                        fontSize = 12.5.sp,
+                        fontSize = c.text(12.5f).sp,
                         fontWeight = FontWeight.Medium,
                     ),
                 )
             }
-            Spacer(GlanceModifier.height(11.dp))
-            ProgressTrack(stats.progress, palette)
-            Spacer(GlanceModifier.height(11.dp))
+            Spacer(GlanceModifier.height(gap.dp))
+            ProgressTrack(stats.progress, palette, height = c.stroke(8f).roundToInt().coerceAtLeast(6))
+            Spacer(GlanceModifier.height(gap.dp))
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 Text(
                     Units.formatWithUnit(stats.startKg, data.unit),
-                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 11.sp),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = c.text(11f).sp,
+                    ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
                     remainingLabel(stats, data),
-                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 11.sp),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = c.text(11f).sp,
+                    ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
                     Units.formatWithUnit(stats.targetKg, data.unit),
-                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 11.sp),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = c.text(11f).sp,
+                    ),
                 )
             }
         }
@@ -316,50 +385,125 @@ class ChartWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val context = LocalContext.current
-        val density = context.resources.displayMetrics.density
-        val size = LocalSize.current
-        val chartWidthDp = (size.width.value - 130f).coerceAtLeast(80f)
-        // Grow with the cell, but keep the prototype's wide, shallow band (200x70):
-        // at 1:1 the daily noise swamps the trend and the widget reads as a scribble.
-        val available = (size.height.value - 28f).coerceAtLeast(48f)
-        val chartHeightDp = minOf(available, chartWidthDp / 2.9f).coerceIn(44f, 110f)
+        val density = LocalContext.current.resources.displayMetrics.density
+        val c = cell(designContentHeightDp = 86f)
 
-        Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                provider = ImageProvider(
-                    WidgetPainter.sparkline(
-                        widthPx = (chartWidthDp * density).roundToInt(),
-                        heightPx = (chartHeightDp * density).roundToInt(),
-                        entries = data.entries,
-                        stats = stats,
-                        palette = palette,
-                        density = density,
+        val bigSp = c.text(20f)
+        val smallSp = c.text(11f)
+        val gap = c.space(8f)
+
+        // The prototype puts the figures beside a wide, shallow sparkline, which suits
+        // its 250x110 box. A launcher 4x2 is far taller in proportion, so on a tall cell
+        // the figures move above the chart and the chart takes the whole width — that
+        // fills the cell AND keeps the shallow band. A short, wide cell keeps the
+        // original side-by-side arrangement.
+        val stacked = c.height > c.width * 0.4f
+
+        if (stacked) {
+            val headerH = bigSp * 1.35f
+            val footerH = smallSp * 1.4f
+            val chartH = (c.height - headerH - footerH - gap * 2f).coerceAtLeast(40f)
+            Column(modifier = GlanceModifier.fillMaxSize()) {
+                Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        Units.format(stats.currentKg, data.unit),
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.onSurface)),
+                            fontSize = bigSp.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
                     )
-                ),
-                contentDescription = null,
-                modifier = GlanceModifier.width(chartWidthDp.dp).height(chartHeightDp.dp),
-            )
-            Spacer(GlanceModifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    Units.format(stats.currentKg, data.unit),
-                    style = TextStyle(
-                        color = ColorProvider(Color(palette.onSurface)),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Medium,
+                    Spacer(GlanceModifier.width(6.dp))
+                    Text(
+                        data.unit.label,
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.muted)),
+                            fontSize = smallSp.sp,
+                        ),
+                    )
+                    Spacer(GlanceModifier.defaultWeight())
+                    Text(
+                        weekChangeLabel(stats, data) + " / 7d",
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.accent)),
+                            fontSize = smallSp.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    )
+                }
+                Spacer(GlanceModifier.height(gap.dp))
+                Image(
+                    provider = ImageProvider(
+                        WidgetPainter.sparkline(
+                            widthPx = (c.width * density).roundToInt(),
+                            heightPx = (chartH * density).roundToInt(),
+                            entries = data.entries,
+                            stats = stats,
+                            palette = palette,
+                            density = density,
+                        )
                     ),
+                    contentDescription = null,
+                    modifier = GlanceModifier.fillMaxWidth().height(chartH.dp),
                 )
-                Spacer(GlanceModifier.height(2.dp))
-                Text(
-                    weekChangeLabel(stats, data) + " / 7d",
-                    style = TextStyle(color = ColorProvider(Color(palette.accent)), fontSize = 11.sp),
+                Spacer(GlanceModifier.height(gap.dp))
+                Row(modifier = GlanceModifier.fillMaxWidth()) {
+                    Spacer(GlanceModifier.defaultWeight())
+                    Text(
+                        Units.format(stats.targetKg, data.unit) + " goal",
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.muted)),
+                            fontSize = smallSp.sp,
+                        ),
+                    )
+                }
+            }
+        } else {
+            val figuresW = (c.width * 0.3f).coerceIn(96f, 160f)
+            val chartW = (c.width - figuresW - gap).coerceAtLeast(72f)
+            val chartH = c.height.coerceAtMost(chartW / 1.9f)
+            Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    provider = ImageProvider(
+                        WidgetPainter.sparkline(
+                            widthPx = (chartW * density).roundToInt(),
+                            heightPx = (chartH * density).roundToInt(),
+                            entries = data.entries,
+                            stats = stats,
+                            palette = palette,
+                            density = density,
+                        )
+                    ),
+                    contentDescription = null,
+                    modifier = GlanceModifier.width(chartW.dp).height(chartH.dp),
                 )
-                Spacer(GlanceModifier.height(2.dp))
-                Text(
-                    "${Units.format(stats.targetKg, data.unit)} goal",
-                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 10.5.sp),
-                )
+                Spacer(GlanceModifier.width(gap.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        Units.format(stats.currentKg, data.unit),
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.onSurface)),
+                            fontSize = bigSp.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    )
+                    Spacer(GlanceModifier.height(2.dp))
+                    Text(
+                        weekChangeLabel(stats, data) + " / 7d",
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.accent)),
+                            fontSize = smallSp.sp,
+                        ),
+                    )
+                    Spacer(GlanceModifier.height(2.dp))
+                    Text(
+                        Units.format(stats.targetKg, data.unit) + " goal",
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.muted)),
+                            fontSize = c.text(10.5f).sp,
+                        ),
+                    )
+                }
             }
         }
     }
@@ -375,35 +519,40 @@ class BigWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val context = LocalContext.current
-        val density = context.resources.displayMetrics.density
-        val size = LocalSize.current
-        val chartWidthDp = (size.width.value - 32f).coerceAtLeast(120f)
-        // Everything else in the column is a known height, so the chart takes what is
-        // left of the cell — capped to the prototype's 260x96 proportion, with the
-        // column centred so any remainder is split above and below rather than
-        // pooling at the bottom.
-        val fixedHeightDp = 34f + 12f + 12f + 6f + 12f + 52f + 28f
-        val available = (size.height.value - fixedHeightDp).coerceAtLeast(64f)
-        val chartHeightDp = minOf(available, chartWidthDp / 2.7f).coerceIn(64f, 160f)
+        val density = LocalContext.current.resources.displayMetrics.density
+        val c = cell(designContentHeightDp = 238f)
 
-        Column(
-            modifier = GlanceModifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        val headerSp = c.text(26f)
+        val chipSp = c.text(12f)
+        val tileLabelSp = c.text(10f)
+        val tileValueSp = c.text(13.5f)
+        val gap = c.space(12f)
+        val trackH = c.stroke(6f)
+        val tilePadV = c.space(10f)
+        val tileH = tileLabelSp * 1.4f + 2f + tileValueSp * 1.4f + tilePadV * 2f
+
+        // Every other row has a known height, so the chart takes the remainder — the
+        // whole design grows with the cell rather than sitting in the top of it.
+        val fixed = headerSp * 1.4f + gap * 3f + trackH + tileH
+        val chartH = (c.height - fixed).coerceIn(56f, c.width / 1.5f)
+
+        Column(modifier = GlanceModifier.fillMaxSize()) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 Text(
                     Units.format(stats.currentKg, data.unit),
                     style = TextStyle(
                         color = ColorProvider(Color(palette.onSurface)),
-                        fontSize = 26.sp,
+                        fontSize = headerSp.sp,
                         fontWeight = FontWeight.Medium,
                     ),
                 )
                 Spacer(GlanceModifier.width(6.dp))
                 Text(
                     data.unit.label,
-                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 12.sp),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = chipSp.sp,
+                    ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 if (stats.dated) {
@@ -417,19 +566,19 @@ class BigWidget : BaseWeightWidget() {
                             aheadChipLabel(stats, data),
                             style = TextStyle(
                                 color = ColorProvider(Color(palette.accent)),
-                                fontSize = 12.sp,
+                                fontSize = chipSp.sp,
                                 fontWeight = FontWeight.Medium,
                             ),
                         )
                     }
                 }
             }
-            Spacer(GlanceModifier.height(12.dp))
+            Spacer(GlanceModifier.height(gap.dp))
             Image(
                 provider = ImageProvider(
                     WidgetPainter.sparkline(
-                        widthPx = (chartWidthDp * density).roundToInt(),
-                        heightPx = (chartHeightDp * density).roundToInt(),
+                        widthPx = (c.width * density).roundToInt(),
+                        heightPx = (chartH * density).roundToInt(),
                         entries = data.entries,
                         stats = stats,
                         palette = palette,
@@ -437,29 +586,32 @@ class BigWidget : BaseWeightWidget() {
                     )
                 ),
                 contentDescription = null,
-                modifier = GlanceModifier.fillMaxWidth().height(chartHeightDp.dp),
+                modifier = GlanceModifier.fillMaxWidth().height(chartH.dp),
             )
-            Spacer(GlanceModifier.height(12.dp))
-            ProgressTrack(stats.progress, palette, height = 6)
-            Spacer(GlanceModifier.height(12.dp))
+            Spacer(GlanceModifier.height(gap.dp))
+            ProgressTrack(stats.progress, palette, height = trackH.roundToInt().coerceAtLeast(4))
+            Spacer(GlanceModifier.height(gap.dp))
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 Box(modifier = GlanceModifier.defaultWeight()) {
-                    StatTile("Left", Units.formatWithUnit(stats.leftKg, data.unit), palette)
+                    StatTile(
+                        "Left", Units.formatWithUnit(stats.leftKg, data.unit), palette,
+                        tileLabelSp, tileValueSp, tilePadV,
+                    )
                 }
                 Spacer(GlanceModifier.width(1.dp))
                 Box(modifier = GlanceModifier.defaultWeight()) {
                     StatTile(
                         "Per day",
-                        if (stats.hasRate) Units.format(stats.neededPerDay, data.unit, 2) else "—",
-                        palette,
+                        if (stats.hasRate) Units.format(stats.neededPerDay, data.unit, 2) else "\u2014",
+                        palette, tileLabelSp, tileValueSp, tilePadV,
                     )
                 }
                 Spacer(GlanceModifier.width(1.dp))
                 Box(modifier = GlanceModifier.defaultWeight()) {
                     StatTile(
                         "Finish",
-                        stats.projectedFinish?.format(isoShort) ?: "—",
-                        palette,
+                        stats.projectedFinish?.format(isoShort) ?: "\u2014",
+                        palette, tileLabelSp, tileValueSp, tilePadV,
                         valueColor = palette.accent,
                     )
                 }
@@ -478,15 +630,22 @@ class GlanceWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val context = LocalContext.current
-        val density = context.resources.displayMetrics.density
+        val density = LocalContext.current.resources.displayMetrics.density
+        val c = cell(designContentHeightDp = 36f)
+
+        val diameter = c.height.coerceIn(28f, 72f)
         Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 provider = ImageProvider(
-                    WidgetPainter.ring((34 * density).roundToInt(), 4f * density, stats.progress, palette)
+                    WidgetPainter.ring(
+                        (diameter * density).roundToInt(),
+                        diameter * 0.118f * density,
+                        stats.progress,
+                        palette,
+                    )
                 ),
                 contentDescription = null,
-                modifier = GlanceModifier.size(34.dp),
+                modifier = GlanceModifier.size(diameter.dp),
             )
             Spacer(GlanceModifier.width(14.dp))
             Column {
@@ -494,13 +653,16 @@ class GlanceWidget : BaseWeightWidget() {
                     Units.formatWithUnit(stats.currentKg, data.unit),
                     style = TextStyle(
                         color = ColorProvider(Color(palette.onSurface)),
-                        fontSize = 15.sp,
+                        fontSize = c.text(15f).sp,
                         fontWeight = FontWeight.Medium,
                     ),
                 )
                 Text(
-                    "${remainingLabel(stats, data)} · ${pctLabel(stats)}",
-                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = 11.5.sp),
+                    remainingLabel(stats, data) + " \u00b7 " + pctLabel(stats),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = c.text(11.5f).sp,
+                    ),
                 )
             }
         }

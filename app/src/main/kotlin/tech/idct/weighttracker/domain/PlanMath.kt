@@ -181,6 +181,32 @@ object PlanMath {
     }
 
     /**
+     * §3: startDate and startKg are "pinned when the plan is created", so a new plan
+     * begins TODAY, at the weight the user is at today.
+     *
+     * Anchoring the start to the last entry's date instead puts the plan line's origin
+     * in the past, and the plan then expects progress for days that elapsed before it
+     * existed — so the very first day already reads as behind schedule. On a plan asking
+     * for more than 0.05 kg a day, one missed weigh-in is enough to turn the whole app
+     * amber before the user has done anything.
+     */
+    fun newPlan(
+        today: LocalDate,
+        startKg: Float,
+        targetKg: Float,
+        mode: PlanMode,
+        targetDate: LocalDate?,
+        ratePerWeek: Float?,
+    ): Plan = Plan(
+        startDate = today,
+        startKg = startKg,
+        targetKg = targetKg,
+        mode = mode,
+        targetDate = if (mode == PlanMode.BY_DATE) targetDate else null,
+        ratePerWeek = if (mode == PlanMode.AT_PACE) ratePerWeek else null,
+    )
+
+    /**
      * §13: a target equal to, or past, the start weight in the wrong direction is
      * rejected at edit time. Returns null when the target is acceptable.
      */

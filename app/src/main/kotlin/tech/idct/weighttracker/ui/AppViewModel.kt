@@ -70,6 +70,9 @@ data class AppUiState(
     val hasEntries: Boolean get() = entries.isNotEmpty()
 }
 
+/** Only used when a goal is set before any weight has ever been logged. */
+const val DEFAULT_START_KG = 80f
+
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = WeightRepository.get(app)
@@ -204,7 +207,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * Section 3: startDate and startKg are pinned when the plan is created and the
      * plan line always begins there, so editing an existing plan leaves them alone.
      */
-    fun savePlan(targetKg: Float, mode: PlanMode, targetDate: LocalDate?, ratePerWeek: Float?) {
+    fun savePlan(
+        targetKg: Float,
+        mode: PlanMode,
+        targetDate: LocalDate?,
+        ratePerWeek: Float?,
+        startKg: Float? = null,
+    ) {
         viewModelScope.launch {
             val existing = repo.plan()
             val entries = repo.entries()
@@ -216,14 +225,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     ratePerWeek = if (mode == PlanMode.AT_PACE) ratePerWeek else null,
                 )
             } else {
-                val last = entries.lastOrNull()
-                Plan(
-                    startDate = last?.date ?: LocalDate.now(),
-                    startKg = last?.kg ?: 80f,
+                PlanMath.newPlan(
+                    today = LocalDate.now(),
+                    // Exactly the weight the edit screen said it would start from.
+                    startKg = startKg ?: entries.lastOrNull()?.kg ?: DEFAULT_START_KG,
                     targetKg = targetKg,
                     mode = mode,
-                    targetDate = if (mode == PlanMode.BY_DATE) targetDate else null,
-                    ratePerWeek = if (mode == PlanMode.AT_PACE) ratePerWeek else null,
+                    targetDate = targetDate,
+                    ratePerWeek = ratePerWeek,
                 )
             }
             repo.savePlan(plan)

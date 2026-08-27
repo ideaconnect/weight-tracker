@@ -323,8 +323,8 @@ fun WeightTrackerApp(
                             PlanEditScreen(
                                 state = state,
                                 onBack = { navController.popBackStack() },
-                                onSave = { target, mode, date, rate ->
-                                    viewModel.savePlan(target, mode, date, rate)
+                                onSave = { target, mode, date, rate, start ->
+                                    viewModel.savePlan(target, mode, date, rate, start)
                                     navController.navigateSingle(Routes.PLAN)
                                 },
                             )

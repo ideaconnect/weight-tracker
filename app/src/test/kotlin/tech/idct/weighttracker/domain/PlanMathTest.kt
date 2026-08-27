@@ -153,6 +153,75 @@ class PlanMathTest {
         assertNull(PlanMath.stats(samplePlan, wrongWay, today).projectedFinish)
     }
 
+    // §3: "pinned when the plan is created" ---------------------------------
+
+    @Test
+    fun `a plan created today starts today, not at the last entry`() {
+        // The user last weighed in five days ago and sets a goal now.
+        val lastWeighIn = today.minusDays(5)
+        val entries = listOf(
+            WeightEntry(today.minusDays(30), 84.0f, EntrySource.MANUAL),
+            WeightEntry(lastWeighIn, 82.4f, EntrySource.MANUAL),
+        )
+        val plan = PlanMath.newPlan(
+            today = today,
+            startKg = 82.4f,
+            targetKg = 75.0f,
+            mode = PlanMode.BY_DATE,
+            targetDate = today.plusDays(90),
+            ratePerWeek = null,
+        )
+
+        assertEquals(today, plan.startDate)
+
+        // Day one must be neither ahead nor behind: nothing has happened yet.
+        val stats = PlanMath.stats(plan, entries, today)
+        assertEquals(0, stats.daysSinceStart)
+        assertEquals(82.4f, stats.planKgToday, 0.001f)
+        assertEquals(0f, stats.aheadKg, 0.001f)
+        assertFalse("a brand new plan cannot already be behind", stats.behind)
+        assertEquals(0f, stats.progress, 0.001f)
+    }
+
+    @Test
+    fun `pinning the start to an old entry would report the user behind on day one`() {
+        // Guards the regression: the same plan anchored five days back.
+        val lastWeighIn = today.minusDays(5)
+        val entries = listOf(WeightEntry(lastWeighIn, 82.4f, EntrySource.MANUAL))
+        val anchoredToEntry = Plan(
+            startDate = lastWeighIn,
+            startKg = 82.4f,
+            targetKg = 75.0f,
+            mode = PlanMode.BY_DATE,
+            targetDate = today.plusDays(90),
+            ratePerWeek = null,
+        )
+        val wrong = PlanMath.stats(anchoredToEntry, entries, today)
+        assertTrue("this is the behaviour newPlan exists to avoid", wrong.behind)
+
+        val right = PlanMath.stats(
+            PlanMath.newPlan(today, 82.4f, 75.0f, PlanMode.BY_DATE, today.plusDays(90), null),
+            entries,
+            today,
+        )
+        assertFalse(right.behind)
+    }
+
+    @Test
+    fun `an at-pace plan created today also starts today`() {
+        val plan = PlanMath.newPlan(
+            today = today,
+            startKg = 82.4f,
+            targetKg = 75.0f,
+            mode = PlanMode.AT_PACE,
+            targetDate = null,
+            ratePerWeek = 0.5f,
+        )
+        assertEquals(today, plan.startDate)
+        assertNull("AT_PACE derives its date rather than storing one", plan.targetDate)
+        assertEquals(today.plusDays(104), PlanMath.targetDate(plan))
+    }
+
     @Test
     fun `unit conversion rounds to one decimal in both units`() {
         assertEquals("79.2", Units.format(79.2f, WeightUnit.KG))
