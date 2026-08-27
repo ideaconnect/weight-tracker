@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Weight Tracker</string>
+    <string name="widget_ring_label">Progress ring</string>
+    <string name="widget_bar_label">Progress bar</string>
+    <string name="widget_chart_label">Weight chart</string>
+    <string name="widget_big_label">Chart + stats</string>
+    <string name="widget_glance_label">Glance</string>
+    <string name="widget_ring_desc">Percentage of plan complete</string>
+    <string name="widget_bar_desc">Current weight, percentage and progress bar</string>
+    <string name="widget_chart_desc">Sparkline with plan line and band</string>
+    <string name="widget_big_desc">Chart, vs-plan chip and three figures</string>
+    <string name="widget_glance_desc">Small ring, current weight and percentage</string>
+</resources>
