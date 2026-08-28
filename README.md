@@ -130,8 +130,28 @@ adb shell am broadcast -a tech.idct.weighttracker.SHOW_REMINDER \
   -n $PKG/tech.idct.weighttracker.work.ReminderReceiver
 ```
 
-The seeded dates assume the device clock reads 2026-08-27, which is day 57 of
-the specification's sample plan.
+The seeded series runs from 2026-07-01 to the device's current date, ending on
+the specification's sample numbers (79.2 kg today, or 80.3 behind).
+
+## End-to-end tests
+
+Fifteen scenarios drive the real UI on an emulator against the real Supabase
+project — accounts (sign-up with the emailed code, login, password reset and
+change, email change, deletion), the backup round trip, Health Connect in both
+directions, manual logging, widget placement, and the plan verdicts including
+the trophy screen. Each scenario captures screenshots as it goes.
+
+```
+python e2e/run.py                # build, install, run everything
+python e2e/run.py --skip-build   # reuse the installed APKs
+python e2e/run.py backup restore # a subset
+```
+
+Needs a running emulator, and `secrets/` populated (see `e2e/supa.py`) so the
+runner can hand the admin secret to the tests at run time — it is never baked
+into an APK. The report with screenshots lands at `e2e/report/report.html`;
+the committed one is from the latest full run. `e2e/verify_backend.py` checks
+the server contract alone, with no device involved.
 
 ## Still open
 

@@ -39,6 +39,11 @@ the first one to be recorded here; the rest are noted for the same reason.
   the wipe can never auto-upload an empty snapshot over a good backup.
 - Reaching the target weight shows the trophy screen — the one moment the app
   congratulates, once per plan.
+- Fifteen end-to-end scenarios drive the real UI against the real backend —
+  the whole account lifecycle, the backup round trip, Health Connect both
+  ways, widget placement, and the plan verdicts — with a screenshot report
+  committed under e2e/report/. The suite found and fixed a real bug: a
+  successful email change left the user stranded on the code panel.
 
 ### Known gaps
 

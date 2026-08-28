@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -85,7 +86,7 @@ fun WtTextField(
                 onValueChange = { next ->
                     onValueChange(if (code) next.filter(Char::isDigit).take(6) else next)
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(label),
                 textStyle = TextStyle(
                     fontSize = if (code) 22.sp else 15.sp,
                     color = colors.onSurface,

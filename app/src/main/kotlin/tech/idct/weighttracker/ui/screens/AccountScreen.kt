@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -328,6 +329,7 @@ fun AccountScreen(
                         WtSwitch(
                             checked = state.settings.backupEnabled,
                             onCheckedChange = viewModel::setBackupEnabled,
+                            modifier = Modifier.testTag("backupSwitch"),
                         )
                     }
                     WtRow {
@@ -502,6 +504,9 @@ fun AccountScreen(
                     onClick = {
                         run({ viewModel.accountVerifyEmailChange(newEmail.trim(), codeInput) }) {
                             viewModel.showToast("Email address changed")
+                            // The session stays signed in across the change, so the
+                            // signed-in watcher never fires — walk back by hand.
+                            panel = Panel.SIGNED_IN
                         }
                     },
                 )

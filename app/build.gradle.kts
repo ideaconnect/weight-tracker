@@ -44,6 +44,7 @@ android {
     sourceSets["main"].kotlin.srcDir("src/main/kotlin")
     sourceSets["debug"].kotlin.srcDir("src/debug/kotlin")
     sourceSets["test"].kotlin.srcDir("src/test/kotlin")
+    sourceSets["androidTest"].kotlin.srcDir("src/androidTest/kotlin")
 
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
@@ -104,4 +105,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.uiautomator)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }
