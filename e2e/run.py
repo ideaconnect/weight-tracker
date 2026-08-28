@@ -49,6 +49,8 @@ SCENARIOS = [
      "A manually logged weight is written back into Health Connect."),
     ("widgets", "WidgetsTest#multipleWidgets",
      "Place the ring and the bar widget from the gallery; both end up on the launcher."),
+    ("widgets-behind", "WidgetsTest#widgetsBehindPlan",
+     "The same widgets over the behind fixture: every ring, bar and percentage on the launcher turns amber."),
     ("on-track", "TrackingTest#onTrack",
      "The sample plan, on schedule: green, and ahead."),
     ("behind", "TrackingTest#behind",
@@ -184,8 +186,13 @@ def main():
     for setting in ("window_animation_scale", "transition_animation_scale", "animator_duration_scale"):
         adb("shell", "settings", "put", "global", setting, "0")
 
-    if (REPORT / "screenshots").exists() and not args:
-        shutil.rmtree(REPORT / "screenshots")
+    if not args:
+        if (REPORT / "screenshots").exists():
+            shutil.rmtree(REPORT / "screenshots")
+        # A full run starts from a clean home screen, or every past run's pinned
+        # widgets pile up in the launcher screenshots.
+        adb("shell", "pm", "clear", "com.google.android.apps.nexuslauncher")
+        adb("shell", "input", "keyevent", "KEYCODE_HOME")
     fingerprint = adb("shell", "getprop", "ro.build.fingerprint").strip()
 
     results = []
