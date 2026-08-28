@@ -44,4 +44,6 @@ data class AppSettings(
     val quickLogFromNotification: Boolean = true,
     val onboardingComplete: Boolean = false,
     val signedInEmail: String? = null,
+    val backupEnabled: Boolean = false,
+    val celebratedPlanKey: String? = null,
 )

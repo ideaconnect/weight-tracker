@@ -19,8 +19,13 @@ document.
 - **Six widgets**: 2×2 ring, 4×2 bar, 4×2 chart, 4×4 chart + stats, and the
   lock-screen glance in a wide (4×1, with a progress bar) and a compact (2×1) width.
 - **A daily reminder** carrying real numbers, with inline logging.
-- **Offline by default.** Everything works with no account and no network, and
-  nothing is uploaded — Android cloud backup is switched off too.
+- **Offline by default.** Everything works with no account and no network;
+  Android cloud backup is switched off. An optional email account adds cloud
+  backup of your plan and history — uploads happen automatically while it is
+  on, restore only ever by hand, and one tap clears the cloud copy for a fresh
+  start.
+- **A finish line.** Crossing your target weight earns the trophy screen, once
+  per plan.
 
 ## Building
 
@@ -50,20 +55,30 @@ sdk.dir=/path/to/android-sdk
 | Scheduling | WorkManager for the daily sync, AlarmManager for the reminder |
 | Payments | Play Billing, one non-consumable product |
 | Ads | One 320×50 banner, home screen only |
-| Sign-in | Credential Manager with Google, optional and skippable |
+| Accounts | Supabase email + password, verified with a 6-digit code, optional |
+| Backup | One JSON snapshot per account under row-level security |
 
 ## Configuration you have to supply
 
 Three integrations need IDs from your own accounts. The app builds and runs
 without them — it just says so plainly rather than failing.
 
-**`app/src/main/res/values/oauth.xml`**
+**`app/src/main/res/values/config.xml`**
 
-- `google_server_client_id` — the Google Cloud OAuth 2.0 **Web application**
-  client ID. Empty by default, which disables Google sign-in; nothing else in
-  the app depends on it.
 - `billing_product_id` — the Play Console in-app product ID for the widget
   unlock. Defaults to `widgets_unlock`.
+- `supabase_url` / `supabase_publishable_key` — the Supabase project behind
+  accounts and backup. The publishable key is made to ship in clients;
+  row-level security is what protects the data. Empty values disable accounts,
+  and the app says so plainly.
+
+The Supabase project itself is code too: `supabase/` holds the config, the
+backups schema migration and two edge functions. `e2e/verify_backend.py`
+proves every auth and backup flow against the live project. One deliberate
+dev-stage choice: a send-email auth hook routes verification codes into a
+service-role-only table (so tests can read them) instead of sending real
+email. **Before production, configure real SMTP in `supabase/config.toml` and
+disable the `[auth.hook.send_email]` block.**
 
 **`app/src/main/AndroidManifest.xml`**
 
@@ -80,6 +95,7 @@ without them — it just says so plainly rather than failing.
 ```
 domain/      Plan maths, units, models — no Android dependencies, fully tested
 data/db/     Room entities and DAOs: entry, plan, settings, entitlement, tombstone
+data/account/ Supabase client, email auth and the backup snapshot service
 data/repo/   The only door to stored data; the sync merge rules live here
 data/health/ Health Connect client and the sync service
 data/billing/ Play Billing for the one-time unlock

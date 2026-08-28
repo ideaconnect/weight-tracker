@@ -150,6 +150,27 @@ class WeightRepository(private val db: AppDatabase) {
         )
     }
 
+    // ---- backup ------------------------------------------------------------
+
+    suspend fun tombstoneDates(): List<Long> = db.tombstones().allDates()
+
+    /**
+     * Restore replaces entries, tombstones and the plan wholesale — never merges.
+     * Settings stay: they describe this device, not the data.
+     */
+    suspend fun replaceAllFromBackup(
+        entries: List<WeightEntry>,
+        tombstoneEpochDays: List<Long>,
+        plan: Plan?,
+    ) {
+        db.entries().deleteAll()
+        db.tombstones().deleteAll()
+        db.plans().deleteAll()
+        if (entries.isNotEmpty()) db.entries().upsertAll(entries.map { it.toRow() })
+        tombstoneEpochDays.forEach { db.tombstones().put(TombstoneRow(it)) }
+        plan?.let { db.plans().put(it.toRow()) }
+    }
+
     // ---- destructive -------------------------------------------------------
 
     /**
@@ -224,6 +245,8 @@ private fun SettingsRow.toDomain() = AppSettings(
     quickLogFromNotification = quickLogFromNotification,
     onboardingComplete = onboardingComplete,
     signedInEmail = signedInEmail,
+    backupEnabled = backupEnabled,
+    celebratedPlanKey = celebratedPlanKey,
 )
 
 private fun AppSettings.toRow() = SettingsRow(
@@ -237,4 +260,6 @@ private fun AppSettings.toRow() = SettingsRow(
     quickLogFromNotification = quickLogFromNotification,
     onboardingComplete = onboardingComplete,
     signedInEmail = signedInEmail,
+    backupEnabled = backupEnabled,
+    celebratedPlanKey = celebratedPlanKey,
 )

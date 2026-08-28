@@ -45,6 +45,8 @@ data class PlanStats(
     val weekChangeKg: Float?,
     /** §13: target date in the past suppresses the daily rate and invites an edit. */
     val targetDatePassed: Boolean,
+    /** The logged weight has crossed the target, in the plan's own direction. */
+    val reached: Boolean,
     /**
      * Whether the schedule has actually run. False on the day the plan is created:
      * the start weight is that day's weight, so there is nothing yet to be ahead or
@@ -192,6 +194,7 @@ object PlanMath {
             behind = behind,
             lostKg = lostKg,
             leftKg = leftKg,
+            reached = entries.isNotEmpty() && (currentKg - plan.targetKg) * direction <= 1e-4f,
             planRatePerDay = planRatePerDay,
             neededPerDay = neededPerDay,
             neededPerWeek = neededPerDay * 7f,

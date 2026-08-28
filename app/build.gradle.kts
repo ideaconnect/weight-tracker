@@ -93,10 +93,6 @@ dependencies {
 
     implementation(libs.androidx.health.connect.client)
 
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.googleid)
-
     implementation(libs.billing)
     implementation(libs.play.services.ads)
 

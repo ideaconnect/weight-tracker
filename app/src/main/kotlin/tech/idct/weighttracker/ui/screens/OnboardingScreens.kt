@@ -92,7 +92,8 @@ fun OnboardingScreen(
                 Bullet(
                     WtIcons.Lock,
                     "Privacy focused",
-                    "Your weights stay on the phone. Nothing is uploaded, sold or shared.",
+                    "Your weights stay on this phone unless you turn on cloud backup. " +
+                        "Nothing is sold or shared, ever.",
                 )
                 Bullet(
                     WtIcons.Sell,
@@ -110,7 +111,7 @@ fun OnboardingScreen(
         Spacer(Modifier.height(32.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton(
-                "Sign in with Google",
+                "Sign in or create account",
                 onClick = onSignIn,
                 icon = WtIcons.Login,
                 background = colors.onSurface,
@@ -118,7 +119,8 @@ fun OnboardingScreen(
             )
             SecondaryButton("Continue offline", onClick = onContinueOffline, icon = WtIcons.CloudOff)
             Text(
-                "Signing in only links your Google account for now. Nothing leaves the phone.",
+                "An account only backs up your plan and history — and restores them " +
+                    "on a new phone. You can add one later in Settings.",
                 style = TextStyle(fontSize = 11.5.sp, lineHeight = 17.sp),
                 color = colors.muted,
                 textAlign = TextAlign.Center,

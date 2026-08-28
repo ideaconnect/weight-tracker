@@ -28,14 +28,25 @@ the first one to be recorded here; the rest are noted for the same reason.
   top of the specification's rule that the trend must run in the right direction
   and have at least two entries behind it.
 
+### Since then
+
+- Google sign-in is gone. Accounts are email + password on Supabase, verified
+  with a 6-digit emailed code, with password reset, password change, email
+  change and self-serve account deletion.
+- Cloud backup exists behind the account: automatic uploads of entries, plan
+  and deleted-day tombstones while the switch is on; restore and
+  clear-the-cloud-copy only ever by hand. "Delete all data" signs out first so
+  the wipe can never auto-upload an empty snapshot over a good backup.
+- Reaching the target weight shows the trophy screen — the one moment the app
+  congratulates, once per plan.
+
 ### Known gaps
 
-- Google sign-in, Play Billing and AdMob need IDs from a real account before
-  they do anything; see the README. Without them sign-in says so plainly,
-  the paywall reports that Play is unreachable, and the banner shows Google's
-  test creative.
-- Signing in records the account, but there is no backup service behind it. The
-  account row and the sign-in confirmation say so rather than promising a backup that
-  does not happen.
+- Play Billing and AdMob still need IDs from a real account before they do
+  anything; the paywall reports that Play is unreachable and the banner shows
+  Google's test creative.
+- Auth emails are currently captured server-side for testing rather than
+  delivered (see the README); production needs real SMTP and the hook turned
+  off.
 - Lock-screen placement for the glance widget depends on the launcher; it is
   declared for both the keyguard and home-screen categories.

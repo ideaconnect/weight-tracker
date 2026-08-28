@@ -44,6 +44,10 @@ data class SettingsRow(
     val quickLogFromNotification: Boolean = true,
     val onboardingComplete: Boolean = false,
     val signedInEmail: String? = null,
+    /** Uploads happen automatically while this is on and someone is signed in. */
+    val backupEnabled: Boolean = false,
+    /** The plan identity whose finish has been celebrated, so it happens once. */
+    val celebratedPlanKey: String? = null,
 )
 
 /**

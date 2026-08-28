@@ -68,6 +68,7 @@ import tech.idct.weighttracker.data.health.HealthConnectManager
 import tech.idct.weighttracker.ui.AppViewModel
 import tech.idct.weighttracker.ui.Overlay
 import tech.idct.weighttracker.ui.components.WtIcons
+import tech.idct.weighttracker.ui.screens.AccountScreen
 import tech.idct.weighttracker.ui.screens.BackgroundSyncScreen
 import tech.idct.weighttracker.ui.screens.BottomSheetScaffold
 import tech.idct.weighttracker.ui.screens.ConfirmDeleteDialog
@@ -86,6 +87,7 @@ import tech.idct.weighttracker.ui.screens.PlanEditScreen
 import tech.idct.weighttracker.ui.screens.PlanScreen
 import tech.idct.weighttracker.ui.screens.ReminderScreen
 import tech.idct.weighttracker.ui.screens.SettingsScreen
+import tech.idct.weighttracker.ui.screens.SuccessScreen
 import tech.idct.weighttracker.ui.screens.WidgetInfoDialog
 import tech.idct.weighttracker.ui.screens.WidgetsScreen
 import tech.idct.weighttracker.ui.theme.WeightTrackerTheme
@@ -104,6 +106,7 @@ object Routes {
     const val PLAN = "plan"
     const val PLAN_EDIT = "planEdit"
     const val SETTINGS = "settings"
+    const val ACCOUNT = "account"
     const val REMINDER = "reminder"
     const val WIDGETS = "widgets"
     const val PLACEMENT = "placement"
@@ -261,10 +264,7 @@ fun WeightTrackerApp(
                     ) {
                         composable(Routes.ONBOARD) {
                             OnboardingScreen(
-                                onSignIn = {
-                                    viewModel.signIn(context)
-                                    navController.navigateSingle(Routes.HEALTH_CONNECT)
-                                },
+                                onSignIn = { navController.navigateSingle(Routes.ACCOUNT) },
                                 onContinueOffline = { navController.navigateSingle(Routes.HEALTH_CONNECT) },
                             )
                         }
@@ -384,16 +384,26 @@ fun WeightTrackerApp(
                                 onHealthConnect = { navController.navigateSingle(Routes.HEALTH_CONNECT) },
                                 onBackgroundSync = { navController.navigateSingle(Routes.BACKGROUND_SYNC) },
                                 onReminder = { navController.navigateSingle(Routes.REMINDER) },
-                                onAccount = {
-                                    if (state.settings.signedInEmail != null) viewModel.signOut()
-                                    else viewModel.signIn(context)
-                                },
+                                onAccount = { navController.navigateSingle(Routes.ACCOUNT) },
                                 onExportCsv = { csvLauncher.launch(viewModel.csvFilename()) },
                                 // §7 marks the gallery's previews "Locked until
                                 // purchase", which only means anything if someone who
                                 // has not paid can look at them.
                                 onWidgets = { navController.navigateSingle(Routes.WIDGETS) },
                                 onDeleteAll = { viewModel.openOverlay(Overlay.ConfirmDeleteAll) },
+                            )
+                        }
+
+                        composable(Routes.ACCOUNT) {
+                            AccountScreen(
+                                state = state,
+                                viewModel = viewModel,
+                                onBack = { navController.popBackStack() },
+                                // From onboarding the flow continues; a restored
+                                // backup is already on board at this point.
+                                onContinueOnboarding = {
+                                    navController.navigateSingle(Routes.HEALTH_CONNECT)
+                                },
                             )
                         }
 
@@ -555,6 +565,19 @@ fun WeightTrackerApp(
                     unit = state.settings.unit,
                     quickLog = state.settings.quickLogFromNotification,
                     onDismiss = viewModel::dismissOverlay,
+                )
+            }
+
+            // §12 said the app never congratulates; the finish line is the one
+            // exception, and it happens exactly once per plan.
+            if (state.showSuccess) {
+                SuccessScreen(
+                    state = state,
+                    onDismiss = viewModel::dismissSuccess,
+                    onNewGoal = {
+                        viewModel.dismissSuccess()
+                        navController.navigateSingle(Routes.PLAN_EDIT)
+                    },
                 )
             }
 

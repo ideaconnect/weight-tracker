@@ -3,6 +3,7 @@ package tech.idct.weighttracker.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.AddToHomeScreen
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Add
@@ -16,7 +17,16 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.Password
+import androidx.compose.material.icons.outlined.PersonRemove
+import androidx.compose.material.icons.outlined.SettingsBackupRestore
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Login
 import androidx.compose.material.icons.outlined.MonitorHeart
@@ -59,4 +69,14 @@ object WtIcons {
     val Download = Icons.Outlined.Download
     val AccountCircle = Icons.Outlined.AccountCircle
     val Widgets = Icons.Outlined.Widgets
+    val Mail = Icons.Outlined.MailOutline
+    val Password = Icons.Outlined.Password
+    val Visibility = Icons.Outlined.Visibility
+    val VisibilityOff = Icons.Outlined.VisibilityOff
+    val CloudUpload = Icons.Outlined.CloudUpload
+    val CloudDone = Icons.Outlined.CloudDone
+    val Restore = Icons.Outlined.SettingsBackupRestore
+    val Logout = Icons.AutoMirrored.Outlined.Logout
+    val PersonRemove = Icons.Outlined.PersonRemove
+    val Trophy = Icons.Outlined.EmojiEvents
 }

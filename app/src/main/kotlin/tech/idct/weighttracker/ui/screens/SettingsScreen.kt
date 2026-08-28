@@ -173,19 +173,20 @@ fun SettingsScreen(
                 WtRow(onClick = onAccount) {
                     Icon(WtIcons.AccountCircle, null, Modifier.size(21.dp), tint = colors.muted)
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                        Text("Google account", style = TextStyle(fontSize = 14.5.sp), color = colors.onSurface)
+                        Text("Account & backup", style = TextStyle(fontSize = 14.5.sp), color = colors.onSurface)
                         // Section 11: the account row states which state is active in plain words.
-                        // §11 asks for plain words about which state is active. Backup
-                        // is not built yet, so this does not pretend otherwise.
                         Text(
-                            settings.signedInEmail?.let { "$it · backup not available yet" }
-                                ?: "Offline — nothing uploaded",
+                            when {
+                                settings.signedInEmail == null -> "Offline — nothing uploaded"
+                                settings.backupEnabled -> "${settings.signedInEmail} · backup on"
+                                else -> "${settings.signedInEmail} · backup off"
+                            },
                             style = TextStyle(fontSize = 11.5.sp),
                             color = colors.muted,
                         )
                     }
                     Text(
-                        if (settings.signedInEmail != null) "Sign out" else "Sign in",
+                        if (settings.signedInEmail != null) "Manage" else "Sign in",
                         style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
                         color = colors.onTrack,
                     )

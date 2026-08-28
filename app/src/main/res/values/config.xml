@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    IDs the app needs from outside services. Everything degrades gracefully when
+    a value is missing - the app says so plainly instead of failing.
+
+    The Supabase publishable key is designed to be shipped in clients; row-level
+    security is what protects the data, not the key's secrecy.
+-->
+<resources>
+    <!-- Play Console in-app product for the widget unlock (section 10). -->
+    <string name="billing_product_id" translatable="false">widgets_unlock</string>
+
+    <!-- Supabase project: accounts (section 11) and cloud backup live there. -->
+    <string name="supabase_url" translatable="false">https://fxvdmzzkukcilysvahiy.supabase.co</string>
+    <string name="supabase_publishable_key" translatable="false">sb_publishable_y6QZg9vJvCTrAOU1XaFfIA_b4-bQ9xk</string>
+</resources>

@@ -313,6 +313,33 @@ class PlanMathTest {
     }
 
     @Test
+    fun `the finish line is crossing the target, not the date`() {
+        val notThere = PlanMath.stats(samplePlan, sampleEntries, today)
+        assertFalse(notThere.reached)
+
+        val crossed = sampleEntries + WeightEntry(today.plusDays(1), 75.0f, EntrySource.MANUAL)
+        assertTrue(PlanMath.stats(samplePlan, crossed, today.plusDays(1)).reached)
+
+        val past = sampleEntries + WeightEntry(today.plusDays(1), 74.6f, EntrySource.MANUAL)
+        assertTrue("overshooting still counts", PlanMath.stats(samplePlan, past, today.plusDays(1)).reached)
+    }
+
+    @Test
+    fun `a gain plan finishes upward`() {
+        val gain = samplePlan.copy(startKg = 60f, targetKg = 65f)
+        val below = listOf(WeightEntry(today, 64.5f, EntrySource.MANUAL))
+        assertFalse(PlanMath.stats(gain, below, today).reached)
+        val there = listOf(WeightEntry(today, 65.0f, EntrySource.MANUAL))
+        assertTrue(PlanMath.stats(gain, there, today).reached)
+    }
+
+    @Test
+    fun `no entries means no finish, whatever the numbers say`() {
+        val generous = samplePlan.copy(startKg = 74f)
+        assertFalse(PlanMath.stats(generous, emptyList(), today).reached)
+    }
+
+    @Test
     fun `unit conversion rounds to one decimal in both units`() {
         assertEquals("79.2", Units.format(79.2f, WeightUnit.KG))
         assertEquals("174.6", Units.format(79.2f, WeightUnit.LB))

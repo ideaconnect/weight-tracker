@@ -7,15 +7,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import tech.idct.weighttracker.data.account.GoogleSignIn
+import tech.idct.weighttracker.data.account.BackupService
+import tech.idct.weighttracker.data.account.SupabaseAuth
+import tech.idct.weighttracker.data.account.SupabaseClient
 import tech.idct.weighttracker.data.billing.BillingManager
 import tech.idct.weighttracker.data.health.HealthConnectManager
 import tech.idct.weighttracker.data.health.SyncService
@@ -68,6 +73,11 @@ data class AppUiState(
     val behind: Boolean get() = stats?.behind == true
     val currentKg: Float? get() = entries.lastOrNull()?.kg
     val hasEntries: Boolean get() = entries.isNotEmpty()
+
+    /** One celebration per plan; the key survives edits that keep the same goal. */
+    val planKey: String? = plan?.let { "${it.startDate}|${it.targetKg}|${it.mode}" }
+    val showSuccess: Boolean =
+        stats?.reached == true && planKey != null && settings.celebratedPlanKey != planKey
 }
 
 /** Only used when a goal is set before any weight has ever been logged. */
@@ -79,7 +89,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val health = HealthConnectManager(app)
     private val syncService = SyncService(app, repo, health)
     val billing = BillingManager(app, repo)
-    private val googleSignIn = GoogleSignIn(app)
+    private val supabase = SupabaseClient(app)
+    val auth = SupabaseAuth(app, supabase)
+    val backup = BackupService(app, supabase, auth, repo)
 
     val ui: StateFlow<AppUiState> = combine(
         repo.observeEntries(),
@@ -114,6 +126,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     init {
         billing.connect()
         refreshHealthState()
+        watchForBackup()
+    }
+
+    /**
+     * While backup is on and someone is signed in, any change to entries or the
+     * plan is uploaded a moment later. The debounce folds a burst of edits into
+     * one upload; failures stay silent here and show as a stale "Last backup"
+     * line, which the retry on the next app open then clears.
+     */
+    @OptIn(FlowPreview::class)
+    private fun watchForBackup() {
+        viewModelScope.launch {
+            combine(repo.observeEntries(), repo.observePlan()) { entries, plan ->
+                entries.hashCode() * 31 + plan.hashCode()
+            }
+                .drop(1)
+                .debounce(2_500)
+                .collect {
+                    if (repo.settings().backupEnabled && auth.session.value != null) {
+                        backup.backupNow()
+                    }
+                }
+        }
     }
 
     // ---- overlays ----------------------------------------------------------
@@ -149,6 +184,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val settings = repo.settings()
             if (settings.healthConnectEnabled) syncService.syncNow()
+            if (settings.backupEnabled && auth.session.value != null) backup.backupNow()
             WidgetUpdater.updateAll(getApplication())
         }
     }
@@ -340,31 +376,115 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     // ---- account -----------------------------------------------------------
 
     /**
-     * Section 11: sign-in is optional and adds backup of plan and history. Failing
-     * to sign in never blocks anything — offline is the default and complete.
+     * Section 11: an account is optional and exists only for backup. Every call
+     * returns null on success or a sentence for the screen to show inline —
+     * failing never blocks anything, offline is the default and complete.
      */
-    fun signIn(activityContext: android.content.Context) {
-        viewModelScope.launch {
-            when (val result = googleSignIn.signIn(activityContext)) {
-                is GoogleSignIn.Result.Success -> {
-                    setSignedInEmail(result.email)
-                    // No backup service exists behind this yet, so it does not claim one.
-                    showToast("Signed in as ${result.email}")
-                }
+    private fun SupabaseAuth.Outcome.orMessage(): String? =
+        (this as? SupabaseAuth.Outcome.Error)?.message
 
-                is GoogleSignIn.Result.Cancelled -> Unit
-                is GoogleSignIn.Result.Unavailable -> showToast(result.message)
-                is GoogleSignIn.Result.Failed -> showToast(result.message)
+    private suspend fun onSignedIn(): String? {
+        val session = auth.session.value ?: return "Sign-in did not complete"
+        setSignedInEmail(session.email)
+        backup.fetchLastBackupAt()
+        return null
+    }
+
+    suspend fun accountSignIn(email: String, password: String): String? =
+        auth.signIn(email, password).orMessage() ?: onSignedIn()
+
+    suspend fun accountSignUp(email: String, password: String): String? =
+        auth.signUp(email, password).orMessage()
+
+    suspend fun accountVerifySignup(email: String, code: String): String? =
+        auth.verifyCode("signup", email, code).orMessage() ?: onSignedIn()
+
+    suspend fun accountResendSignupCode(email: String): String? =
+        auth.resendSignupCode(email).orMessage()
+
+    suspend fun accountRequestReset(email: String): String? =
+        auth.requestPasswordReset(email).orMessage()
+
+    /** The recovery code signs the user in, then the new password is set. */
+    suspend fun accountCompleteReset(email: String, code: String, newPassword: String): String? =
+        auth.verifyCode("recovery", email, code).orMessage()
+            ?: auth.updatePassword(newPassword).orMessage()
+            ?: onSignedIn()
+
+    suspend fun accountChangePassword(newPassword: String): String? =
+        auth.updatePassword(newPassword).orMessage()
+
+    suspend fun accountRequestEmailChange(newEmail: String): String? =
+        auth.requestEmailChange(newEmail).orMessage()
+
+    suspend fun accountVerifyEmailChange(newEmail: String, code: String): String? =
+        auth.verifyCode("email_change", newEmail, code).orMessage() ?: onSignedIn()
+
+    fun accountSignOut() {
+        viewModelScope.launch {
+            auth.signOut()
+            forgetAccountLocally()
+            showToast("Signed out · data stays on this phone")
+        }
+    }
+
+    /** The account, its backup row and the session all go; local data stays. */
+    suspend fun accountDelete(): String? {
+        val error = auth.deleteAccount().orMessage()
+        if (error == null) {
+            forgetAccountLocally()
+            showToast("Account deleted · data stays on this phone")
+        }
+        return error
+    }
+
+    private fun forgetAccountLocally() {
+        backup.forgetLocalState()
+        mutateSettings({ it.copy(signedInEmail = null, backupEnabled = false) })
+    }
+
+    // ---- backup ------------------------------------------------------------
+
+    fun setBackupEnabled(enabled: Boolean) {
+        mutateSettings({ it.copy(backupEnabled = enabled) }) {
+            if (enabled) {
+                when (val result = backup.backupNow()) {
+                    is BackupService.Result.Ok -> showToast("Backed up")
+                    is BackupService.Result.Error -> showToast(result.message)
+                }
             }
         }
     }
 
-    fun signOut() {
-        viewModelScope.launch {
-            googleSignIn.signOut()
-            setSignedInEmail(null)
-            showToast("Signed out · data stays on this phone")
+    fun refreshBackupInfo() {
+        viewModelScope.launch { if (auth.session.value != null) backup.fetchLastBackupAt() }
+    }
+
+    suspend fun backupRestore(): String? =
+        when (val result = backup.restore()) {
+            is BackupService.Result.Ok -> {
+                WidgetUpdater.updateAll(getApplication())
+                showToast("Everything restored from the backup")
+                null
+            }
+            is BackupService.Result.Error -> result.message
         }
+
+    suspend fun backupClear(): String? =
+        when (val result = backup.clear()) {
+            is BackupService.Result.Ok -> {
+                showToast("Backed-up data deleted")
+                null
+            }
+            is BackupService.Result.Error -> result.message
+        }
+
+    // ---- celebration -------------------------------------------------------
+
+    /** §12: once. Dismissing writes the plan's key so it never replays. */
+    fun dismissSuccess() {
+        val key = ui.value.planKey ?: return
+        mutateSettings({ it.copy(celebratedPlanKey = key) })
     }
 
     // ---- billing -----------------------------------------------------------
@@ -387,9 +507,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun csvFilename(): String = "weight-tracker-${LocalDate.now()}.csv"
 
-    /** Section 13: clears entries, plan and settings, but not the purchase entitlement. */
+    /**
+     * Section 13: clears entries, plan and settings, but not the purchase
+     * entitlement. It also signs out first — a signed-in session with backup on
+     * would otherwise upload the empty state a moment later and take the cloud
+     * copy down with it. The backup row itself is left alone: restoring after a
+     * wipe is exactly what it is for.
+     */
     fun deleteAllData() {
         viewModelScope.launch {
+            auth.clearSession()
+            backup.forgetLocalState()
             repo.deleteAllData()
             DailySyncWorker.cancel(getApplication())
             Reminder.reschedule(getApplication())

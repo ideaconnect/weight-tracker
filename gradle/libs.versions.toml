@@ -13,8 +13,6 @@ datastore = "1.1.7"
 work = "2.10.5"
 glance = "1.1.1"
 healthConnect = "1.1.0"
-credentials = "1.5.0"
-googleid = "1.1.1"
 billing = "8.0.0"
 ads = "24.9.0"
 coroutines = "1.10.2"
@@ -55,9 +53,6 @@ androidx-glance-material3 = { group = "androidx.glance", name = "glance-material
 
 androidx-health-connect-client = { group = "androidx.health.connect", name = "connect-client", version.ref = "healthConnect" }
 
-androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
-androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
-googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
 
 billing = { group = "com.android.billingclient", name = "billing", version.ref = "billing" }
 play-services-ads = { group = "com.google.android.gms", name = "play-services-ads", version.ref = "ads" }
