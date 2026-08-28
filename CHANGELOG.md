@@ -45,6 +45,34 @@ the first one to be recorded here; the rest are noted for the same reason.
   committed under e2e/report/. The suite found and fixed a real bug: a
   successful email change left the user stranded on the code panel.
 
+### Fixed after a blind-spot review (issues #14–#34)
+
+- **Backup can no longer be clobbered.** An upload that would replace a row this
+  device did not write raises a conflict and asks which copy to keep, so signing
+  in on a new phone and flipping the switch can no longer overwrite the old
+  phone's history with an empty one. Restore runs in a single transaction, off
+  the screen's own coroutine scope, and refuses a payload it cannot fully read
+  rather than silently restoring part of it.
+- **A session that dies on its own is noticed.** Settings used to keep saying
+  "backup on" indefinitely after a revoked token stopped every upload.
+- **Signing up with an address that already has an account says so**, instead of
+  promising a code the server was never going to send.
+- **Changing the password signs other devices out.**
+- Verification panels survive process death; auth errors are the app's own words
+  rather than raw server text; the code field accepts a paste and every field is
+  labelled for TalkBack.
+- The reminder notification no longer outlives the setting that posted it, and
+  can no longer write into a wiped database.
+- Gain plans read forwards in History and on the Plan screen.
+- The trophy no longer replays after restoring a finished plan.
+- The debug fixture is anchored to the plan line rather than to fixed dates, so
+  it cannot drift into the wrong status as the calendar moves.
+- The backup payload actually carries its version number. Serialization omits a
+  field equal to its default, so the compatibility guard had nothing to read.
+- The E2E suite grew to 23 scenarios — the error paths, deleting all data, both
+  lock-screen widgets, the backup conflict and the once-only trophy — and cleans
+  up every account it creates even when a scenario fails.
+
 ### Known gaps
 
 - Play Billing and AdMob still need IDs from a real account before they do

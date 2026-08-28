@@ -66,6 +66,7 @@ fun HistoryScreen(
 ) {
     val colors = WtTheme.colors
     val unit = state.settings.unit
+    val direction = state.stats?.direction ?: 1f
     val groups = remember(state.entries) { groupByWeek(state.entries) }
 
     LazyColumn(
@@ -146,7 +147,12 @@ fun HistoryScreen(
                     )
                 }
                 group.rows.forEach { row ->
-                    EntryRow(row = row, unit = unit, onClick = { onEdit(row.entry) })
+                    EntryRow(
+                        row = row,
+                        unit = unit,
+                        direction = direction,
+                        onClick = { onEdit(row.entry) },
+                    )
                 }
             }
         }
@@ -154,7 +160,13 @@ fun HistoryScreen(
 }
 
 @Composable
-private fun EntryRow(row: HistoryRow, unit: WeightUnit, onClick: () -> Unit) {
+private fun EntryRow(
+    row: HistoryRow,
+    unit: WeightUnit,
+    /** +1 for a loss plan, -1 for a gain plan (§13: "ahead" is the good side). */
+    direction: Float,
+    onClick: () -> Unit,
+) {
     val colors = WtTheme.colors
     Row(
         modifier = Modifier
@@ -184,7 +196,8 @@ private fun EntryRow(row: HistoryRow, unit: WeightUnit, onClick: () -> Unit) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.widthIn(min = 56.dp),
         )
-        // Section 7: day-over-day delta, green down, amber up.
+        // Section 7: day-over-day delta, green towards the goal, amber away from it.
+        // Colouring by raw sign painted every good day of a gain plan amber.
         Text(
             row.delta?.let { delta ->
                 val shown = Units.format(abs(delta), unit)
@@ -198,7 +211,7 @@ private fun EntryRow(row: HistoryRow, unit: WeightUnit, onClick: () -> Unit) {
             color = when {
                 row.delta == null -> colors.muted
                 abs(row.delta) < 0.05f -> colors.muted
-                row.delta < 0f -> colors.onTrack
+                row.delta * direction < 0f -> colors.onTrack
                 else -> colors.behind
             },
             maxLines = 1,

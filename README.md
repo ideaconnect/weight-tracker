@@ -73,12 +73,19 @@ without them — it just says so plainly rather than failing.
   and the app says so plainly.
 
 The Supabase project itself is code too: `supabase/` holds the config, the
-backups schema migration and two edge functions. `e2e/verify_backend.py`
+backups schema migration and two edge functions (both for testing only — see
+`docs/production-checklist.md`). `e2e/verify_backend.py`
 proves every auth and backup flow against the live project. One deliberate
 dev-stage choice: a send-email auth hook routes verification codes into a
 service-role-only table (so tests can read them) instead of sending real
 email. **Before production, configure real SMTP in `supabase/config.toml` and
 disable the `[auth.hook.send_email]` block.**
+
+**`secrets/keystore.properties`** (optional, never committed)
+
+- `storeFile`, `storePassword`, `keyAlias`, `keyPassword` — the release signing
+  key. Without it a release build falls back to the debug key and says so; Play
+  will not accept that APK.
 
 **`app/src/main/AndroidManifest.xml`**
 
@@ -135,11 +142,14 @@ the specification's sample numbers (79.2 kg today, or 80.3 behind).
 
 ## End-to-end tests
 
-Sixteen scenarios drive the real UI on an emulator against the real Supabase
+Twenty-three scenarios drive the real UI on an emulator against the real Supabase
 project — accounts (sign-up with the emailed code, login, password reset and
 change, email change, deletion), the backup round trip, Health Connect in both
-directions, manual logging, widget placement (in both status colours), and the plan
-verdicts including the trophy screen. Each scenario captures screenshots as it goes.
+directions, manual logging, widget placement (in both status colours), deleting all data,
+and the plan verdicts including the trophy screen — plus the paths people hit by
+accident: a wrong password, a wrong code, a resend, and signing up with an
+address that already has an account. Each scenario captures screenshots as it
+goes, and every account it creates is deleted afterwards even if it fails.
 
 ```
 python e2e/run.py                # build, install, run everything
@@ -152,6 +162,13 @@ runner can hand the admin secret to the tests at run time — it is never baked
 into an APK. The report with screenshots lands at `e2e/report/report.html`;
 the committed one is from the latest full run. `e2e/verify_backend.py` checks
 the server contract alone, with no device involved.
+
+## Before a public release
+
+`docs/production-checklist.md` lists what is configured for development
+convenience and has to change first — the testing-only edge functions, real SMTP
+in place of the captured-mail hook, a signing key, and Play's account-deletion
+and privacy requirements.
 
 ## Still open
 

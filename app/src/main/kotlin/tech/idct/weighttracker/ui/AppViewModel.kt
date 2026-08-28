@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import tech.idct.weighttracker.data.account.BackupService
@@ -76,12 +77,24 @@ data class AppUiState(
 
     /** One celebration per plan; the key survives edits that keep the same goal. */
     val planKey: String? = plan?.let { "${it.startDate}|${it.targetKg}|${it.mode}" }
-    val showSuccess: Boolean =
+
+    /**
+     * Restoring a finished plan during onboarding used to raise the trophy over the
+     * setup flow, whose "Set a new goal" button then abandoned the rest of it.
+     */
+    val showSuccess: Boolean = settings.onboardingComplete &&
         stats?.reached == true && planKey != null && settings.celebratedPlanKey != planKey
 }
 
 /** Only used when a goal is set before any weight has ever been logged. */
 const val DEFAULT_START_KG = 80f
+
+/** Creating an account has three endings, and two of them are not errors. */
+sealed interface SignUpOutcome {
+    data object CodeSent : SignUpOutcome
+    data object AlreadyRegistered : SignUpOutcome
+    data class Failed(val message: String) : SignUpOutcome
+}
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -121,12 +134,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var syncing by mutableStateOf(false)
         private set
 
+    /** A backup upload, restore or clear is in flight. */
+    var backupBusy by mutableStateOf(false)
+        private set
+
+    /** Whatever the last backup operation had to say, for the Account screen. */
+    var backupMessage by mutableStateOf<String?>(null)
+        private set
+
+    /** Set when the stored backup was written by some other device. */
+    var backupConflict by mutableStateOf<BackupService.Result.Conflict?>(null)
+        private set
+
+    /** Distinguishes "we signed out" from "the session died under us". */
+    private var sessionEndExpected = false
+
     private var toastJob: Job? = null
 
     init {
         billing.connect()
         refreshHealthState()
         watchForBackup()
+        watchSession()
+    }
+
+    /**
+     * A refresh token can die on its own — revoked elsewhere, or the account deleted
+     * from another device — and the session is then cleared deep inside SupabaseAuth.
+     * Without this the Room mirror kept its email and its backup switch, so Settings
+     * went on saying "backup on" while nothing was being uploaded, indefinitely.
+     */
+    private fun watchSession() {
+        viewModelScope.launch {
+            var hadSession = auth.session.value != null
+            auth.session.map { it?.email }.collect { email ->
+                val settings = repo.settings()
+                if (email == null) {
+                    if (settings.signedInEmail != null) {
+                        repo.updateSettings { it.copy(signedInEmail = null, backupEnabled = false) }
+                        backup.forgetLocalState()
+                        WidgetUpdater.updateAll(getApplication())
+                        if (hadSession && !sessionEndExpected) {
+                            showToast("Signed out — backups have stopped")
+                        }
+                    }
+                } else if (settings.signedInEmail != email) {
+                    repo.updateSettings { it.copy(signedInEmail = email) }
+                }
+                sessionEndExpected = false
+                hadSession = email != null
+            }
+        }
     }
 
     /**
@@ -145,7 +203,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 .debounce(2_500)
                 .collect {
                     if (repo.settings().backupEnabled && auth.session.value != null) {
-                        backup.backupNow()
+                        noteBackupResult(backup.backupNow(), successMessage = null)
                     }
                 }
         }
@@ -184,7 +242,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val settings = repo.settings()
             if (settings.healthConnectEnabled) syncService.syncNow()
-            if (settings.backupEnabled && auth.session.value != null) backup.backupNow()
+            if (settings.backupEnabled && auth.session.value != null) {
+                noteBackupResult(backup.backupNow(), successMessage = null)
+            }
             WidgetUpdater.updateAll(getApplication())
         }
     }
@@ -393,8 +453,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     suspend fun accountSignIn(email: String, password: String): String? =
         auth.signIn(email, password).orMessage() ?: onSignedIn()
 
-    suspend fun accountSignUp(email: String, password: String): String? =
-        auth.signUp(email, password).orMessage()
+    suspend fun accountSignUp(email: String, password: String): SignUpOutcome =
+        when (val outcome = auth.signUp(email, password)) {
+            is SupabaseAuth.Outcome.Ok -> SignUpOutcome.CodeSent
+            is SupabaseAuth.Outcome.AlreadyRegistered -> SignUpOutcome.AlreadyRegistered
+            is SupabaseAuth.Outcome.Error -> SignUpOutcome.Failed(outcome.message)
+        }
 
     suspend fun accountVerifySignup(email: String, code: String): String? =
         auth.verifyCode("signup", email, code).orMessage() ?: onSignedIn()
@@ -422,6 +486,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun accountSignOut() {
         viewModelScope.launch {
+            sessionEndExpected = true
             auth.signOut()
             forgetAccountLocally()
             showToast("Signed out · data stays on this phone")
@@ -430,6 +495,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** The account, its backup row and the session all go; local data stays. */
     suspend fun accountDelete(): String? {
+        sessionEndExpected = true
         val error = auth.deleteAccount().orMessage()
         if (error == null) {
             forgetAccountLocally()
@@ -447,37 +513,74 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBackupEnabled(enabled: Boolean) {
         mutateSettings({ it.copy(backupEnabled = enabled) }) {
-            if (enabled) {
-                when (val result = backup.backupNow()) {
-                    is BackupService.Result.Ok -> showToast("Backed up")
-                    is BackupService.Result.Error -> showToast(result.message)
-                }
-            }
+            if (enabled) runBackup("Backed up") { backup.backupNow() }
         }
+    }
+
+    /** The user has seen what another device stored and chosen to replace it. */
+    fun backupReplaceRemote() {
+        backupConflict = null
+        runBackup("Backed up") { backup.backupNow(force = true) }
+    }
+
+    fun dismissBackupConflict() {
+        backupConflict = null
+    }
+
+    fun clearBackupMessage() {
+        backupMessage = null
     }
 
     fun refreshBackupInfo() {
         viewModelScope.launch { if (auth.session.value != null) backup.fetchLastBackupAt() }
     }
 
-    suspend fun backupRestore(): String? =
-        when (val result = backup.restore()) {
-            is BackupService.Result.Ok -> {
-                WidgetUpdater.updateAll(getApplication())
-                showToast("Everything restored from the backup")
-                null
-            }
-            is BackupService.Result.Error -> result.message
-        }
+    /**
+     * Restore runs here rather than in the screen's own scope: on the composable's
+     * scope, navigating away cancelled it half-way through replacing the database.
+     */
+    fun backupRestore() =
+        runBackup("Everything restored from the backup") { backup.restore() }
 
-    suspend fun backupClear(): String? =
-        when (val result = backup.clear()) {
-            is BackupService.Result.Ok -> {
-                showToast("Backed-up data deleted")
-                null
-            }
-            is BackupService.Result.Error -> result.message
+    fun backupClear() = runBackup("Backed-up data deleted") { backup.clear() }
+
+    private fun runBackup(successMessage: String, block: suspend () -> BackupService.Result) {
+        if (backupBusy) return
+        backupMessage = null
+        viewModelScope.launch {
+            backupBusy = true
+            val result = block()
+            backupBusy = false
+            noteBackupResult(result, successMessage)
         }
+    }
+
+    /**
+     * A [successMessage] marks something the user just asked for. Automatic uploads
+     * pass null and stay quiet, showing up as a stale "Last backup" line instead —
+     * exactly as §11 wants. A conflict is never quiet: it needs a decision.
+     */
+    private suspend fun noteBackupResult(
+        result: BackupService.Result,
+        successMessage: String?,
+    ) {
+        when (result) {
+            is BackupService.Result.Ok -> if (successMessage != null) {
+                WidgetUpdater.updateAll(getApplication())
+                showToast(successMessage)
+            }
+
+            is BackupService.Result.Conflict -> {
+                backupConflict = result
+                backupMessage =
+                    "Another device has backed up more recently — choose which copy to keep."
+            }
+
+            is BackupService.Result.Error -> if (successMessage != null) {
+                backupMessage = result.message
+            }
+        }
+    }
 
     // ---- celebration -------------------------------------------------------
 

@@ -72,6 +72,10 @@ object Reminder {
             val pending = showIntent(context)
             if (!settings.reminderEnabled) {
                 alarms.cancel(pending)
+                // Cancelling the alarm left an already-posted notification in the shade,
+                // still showing the numbers from before the switch was turned off — or
+                // from before Delete-all-data wiped them.
+                NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
                 return@launch
             }
             val zone = ZoneId.systemDefault()
@@ -218,6 +222,13 @@ class ReminderReceiver : BroadcastReceiver() {
                             ?.replace(',', '.')
                         val repo = WeightRepository.get(appContext)
                         val settings = repo.settings()
+                        // A notification that outlived the setting (or the database it
+                        // was built from) must not write into it.
+                        if (!settings.reminderEnabled) {
+                            NotificationManagerCompat.from(appContext)
+                                .cancel(Reminder.NOTIFICATION_ID)
+                            return@launch
+                        }
                         val typed = input?.filter { it.isDigit() || it == '.' }?.toFloatOrNull()
                         if (typed != null && Units.isPlausible(typed, settings.unit)) {
                             repo.saveManualEntry(

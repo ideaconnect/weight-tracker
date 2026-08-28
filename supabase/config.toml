@@ -245,7 +245,10 @@ otp_expiry = 3600
 
 # Uncomment to customize email template
 [auth.email.smtp]
-# Never actually contacted: the send_email hook below delivers every auth mail.
+# PAIRED WITH [auth.hook.send_email] BELOW — change both together.
+# Never actually contacted: the send_email hook below intercepts every auth mail.
+# Disabling that hook without putting real credentials here leaves GoTrue dialling
+# smtp.invalid, and every signup, reset and email change fails to deliver silently.
 # A custom SMTP block must exist for the email rate limits above to be
 # configurable; replace with real SMTP details when going to production.
 enabled = true
@@ -268,6 +271,10 @@ sender_name = "Weight Tracker"
 # content_path = "./templates/password_changed_notification.html"
 
 [auth.hook.send_email]
+# PAIRED WITH [auth.email.smtp] ABOVE — change both together.
+# Development only: this stores every verification code in public.auth_mail so the
+# E2E suite can read it. Turning it off requires real SMTP credentials above, or no
+# auth email is delivered at all. See docs/production-checklist.md.
 enabled = true
 uri = "https://fxvdmzzkukcilysvahiy.supabase.co/functions/v1/auth-mail-hook"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"

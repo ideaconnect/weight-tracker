@@ -2,6 +2,7 @@ package tech.idct.weighttracker.e2e
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -31,6 +32,29 @@ class TrackingTest : E2eTestBase() {
             assertEquals(LocalDate.now(), entries.single().date)
         }
         screenshot("same-day-replaced")
+    }
+
+    /** §13: the wipe keeps the purchase and does not restart onboarding. */
+    @Test
+    fun deleteAllData() {
+        resetApp(seed = true, unlock = true)
+        launchApp()
+        waitFor("79.2", substring = true)
+        tapTab("Settings")
+        tap("Delete all data")
+        waitFor("Delete every entry and your plan?")
+        screenshot("confirm-wipe")
+        tap("Delete everything")
+
+        waitFor("All data deleted")
+        tapTab("Home")
+        waitFor("Log first weight")
+        screenshot("day-one-again")
+        assertEquals(0, runBlocking { repo.entries().size })
+        // Onboarding is not a setting: it must not come back after a wipe.
+        assertTrue(runBlocking { repo.settings().onboardingComplete })
+        // §13 keeps the purchase.
+        assertTrue(runBlocking { repo.isUnlocked() })
     }
 
     @Test

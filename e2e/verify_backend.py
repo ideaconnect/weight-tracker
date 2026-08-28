@@ -149,6 +149,16 @@ check("delete_user rpc", s in (200, 204), f"{s} {str(b)[:120]}")
 s, b = supa.auth("/token?grant_type=password", {"email": EMAIL2, "password": PW1})
 check("deleted account cannot sign in", s in (400, 401), f"{s} {str(b)[:120]}")
 
+# --- the admin function is narrow ----------------------------------------------
+r = supa.admin("sql", query="select 1")
+check("the arbitrary-SQL action is gone", r.get("_status") == 400, str(r)[:120])
+
+r = supa.admin("delete_user", email="someone.real@gmail.com")
+check("non-test addresses are refused", r.get("_status") == 400, str(r)[:160])
+
+r = supa.admin("last_mail", email="someone.real@gmail.com")
+check("codes for non-test addresses are unreadable", r.get("_status") == 400, str(r)[:160])
+
 # --- cleanup -------------------------------------------------------------------
 supa.admin("delete_user", email=OTHER)
 supa.admin("clear_mail")

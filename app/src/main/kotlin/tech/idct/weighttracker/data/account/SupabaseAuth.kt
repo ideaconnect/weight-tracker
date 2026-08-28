@@ -6,6 +6,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import android.util.Log
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -37,6 +40,13 @@ class SupabaseAuth(context: Context, private val client: SupabaseClient) {
     sealed interface Outcome {
         data object Ok : Outcome
         data class Error(val message: String) : Outcome
+
+        /**
+         * The address already has a confirmed account. GoTrue will not say so
+         * outright — it answers with a success carrying an obfuscated user — so
+         * this is inferred rather than reported.
+         */
+        data object AlreadyRegistered : Outcome
     }
 
     // ---- flows -------------------------------------------------------------
@@ -47,7 +57,15 @@ class SupabaseAuth(context: Context, private val client: SupabaseClient) {
             put("email", email)
             put("password", password)
         })
-        return if (r.ok) Outcome.Ok else r.toError()
+        if (!r.ok) return r.toError()
+        // Signing up an address that already has a confirmed account answers 200
+        // with a fake user — empty identities, no session — and sends no email, so
+        // that an attacker cannot use sign-up to discover who has an account.
+        // Taking that at face value sent the real user to a code screen no code
+        // would ever reach.
+        val identities = (r.body as? JsonObject)?.get("identities") as? JsonArray
+        if (identities != null && identities.isEmpty()) return Outcome.AlreadyRegistered
+        return Outcome.Ok
     }
 
     /** [type] is signup, recovery or email_change; success stores the session. */
@@ -94,7 +112,11 @@ class SupabaseAuth(context: Context, private val client: SupabaseClient) {
             token = token,
             method = "PUT",
         )
-        return if (r.ok) Outcome.Ok else r.toError()
+        if (!r.ok) return r.toError()
+        // Changing the password is how someone locks out a device they no longer
+        // trust, so every other session goes with it. Ours keeps its tokens.
+        client.call("/auth/v1/logout?scope=others", buildJsonObject {}, token = token)
+        return Outcome.Ok
     }
 
     /** Sends a code to the new address; nothing changes until it is verified. */
@@ -194,11 +216,21 @@ class SupabaseAuth(context: Context, private val client: SupabaseClient) {
             "over_request_rate_limit" -> "Too many tries just now — wait a minute"
             "email_not_confirmed" -> "This address isn't verified yet — check your email for the code"
             "user_not_found" -> "No account with that address"
-            "validation_failed" -> errorMessage ?: "The server didn't accept that"
-            else -> when {
-                status == 0 -> "Couldn't reach the server — check your connection"
-                errorMessage != null -> errorMessage!!
-                else -> "That didn't work (error $status)"
+            "user_already_confirmed" -> "That address is already verified — just sign in"
+            "reauthentication_needed" -> "Sign in again before changing this"
+            "session_not_found", "refresh_token_not_found" ->
+                "You've been signed out — sign in again"
+            else -> {
+                // The raw server text is for the log, not for the user: it arrives in
+                // a voice that is not the app's ("For security purposes, you can only
+                // request this after 26 seconds") and sometimes names internals.
+                Log.w("SupabaseAuth", "unmapped auth error $status/$errorCode: $errorMessage")
+                when {
+                    status == 0 -> "Couldn't reach the server — check your connection"
+                    status == 429 -> "Too many tries just now — wait a minute and try again"
+                    status >= 500 -> "The server is having trouble — try again in a moment"
+                    else -> "That didn't work — check the details and try again"
+                }
             }
         }
     )

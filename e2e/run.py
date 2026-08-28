@@ -23,6 +23,9 @@ REPORT = ROOT / "e2e" / "report"
 PKG = "tech.idct.weighttracker.debug"
 RUNNER = f"{PKG}.test/androidx.test.runner.AndroidJUnitRunner"
 DEVICE_SHOTS = f"/storage/emulated/0/Android/data/{PKG}/files/e2e"
+# Every account this run creates carries it, so two runs never collide and no
+# scenario can read a verification code left behind by an earlier one.
+RUN_ID = str(int(time.time()) % 1_000_000)
 
 SCENARIOS = [
     ("signup", "AccountTest#signup",
@@ -37,10 +40,24 @@ SCENARIOS = [
      "Move the account to a new address, verified by a code sent to that address."),
     ("account-removal", "AccountTest#accountRemoval",
      "Delete the account from the app; the server forgets it, the phone keeps its data."),
+    ("wrong-password", "AccountErrorsTest#wrongPassword",
+     "A wrong password is refused in the app's own words, and the panel that can fix it stays put."),
+    ("wrong-code", "AccountErrorsTest#wrongCode",
+     "A wrong verification code is rejected, and the real one still works afterwards."),
+    ("resend-code", "AccountErrorsTest#resendCode",
+     "“Send a new code” really sends a second one, and that one verifies."),
+    ("duplicate-signup", "AccountErrorsTest#signUpWithAnAddressThatAlreadyExists",
+     "Signing up with an address that already has an account says so, instead of promising a code that never comes."),
     ("backup", "BackupTest#backup",
-     "Turn backup on: 46 entries and the plan appear server-side, and a newly logged weight follows by itself."),
+     "Turn backup on: the seeded entries and the plan appear server-side, and a newly logged weight follows by itself."),
     ("restore", "BackupTest#restore",
      "A fresh phone, the same account: restore brings everything back, then clearing the cloud copy leaves the phone alone."),
+    ("backup-conflict", "BackupTest#conflict",
+     "A second phone turning backup on is asked which copy to keep, instead of silently overwriting the first phone's history."),
+    ("celebration-once", "BackupTest#celebrationDoesNotReplayAfterRestore",
+     "Restoring a finished plan onto a new phone does not replay the trophy."),
+    ("delete-all-data", "TrackingTest#deleteAllData",
+     "Delete all data empties the phone, keeps the purchase, and does not restart onboarding."),
     ("manual-entry", "TrackingTest#manualEntry",
      "Log the first weight by hand; logging again the same day replaces the value."),
     ("hc-sync-in", "HealthConnectTest#syncFromHealthConnect",
@@ -48,7 +65,7 @@ SCENARIOS = [
     ("hc-sync-out", "HealthConnectTest#syncToHealthConnect",
      "A manually logged weight is written back into Health Connect."),
     ("widgets", "WidgetsTest#multipleWidgets",
-     "Place the ring and the bar widget from the gallery; both end up on the launcher."),
+     "Place the ring, the bar and both lock-screen glances from the gallery; all four end up on the launcher."),
     ("widgets-behind", "WidgetsTest#widgetsBehindPlan",
      "The same widgets over the behind fixture: every ring, bar and percentage on the launcher turns amber."),
     ("on-track", "TrackingTest#onTrack",
@@ -88,6 +105,7 @@ def run_scenario(name, target, description):
     out = adb(
         "shell", "am", "instrument", "-w",
         "-e", "class", f"tech.idct.weighttracker.e2e.{target.replace('#', '#')}",
+        "-e", "runId", RUN_ID,
         "-e", "supabaseUrl", supa.URL,
         "-e", "adminSecret", supa.ADMIN_SECRET,
         RUNNER,
@@ -104,12 +122,33 @@ def run_scenario(name, target, description):
         png = adb_exec_screencap()
         if png:
             (shots_dir / "99-at-failure.png").write_bytes(png)
+    for png in shots_dir.glob("*.png"):
+        downscale(png)
     shots = sorted(p.name for p in shots_dir.glob("*.png"))
     return {
         "name": name, "target": target, "description": description,
         "ok": ok, "duration": duration, "shots": shots,
         "log": "" if ok else tail_failure(out),
     }
+
+
+def downscale(path, width=540):
+    """A full-resolution phone screenshot is ~500 KB and the report holds sixty of
+    them; every committed run used to add megabytes to the repository forever.
+    Half width is still comfortably readable in the report."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return
+    try:
+        with Image.open(path) as im:
+            if im.width <= width:
+                return
+            im = im.convert("RGB")
+            im.thumbnail((width, width * 4), Image.LANCZOS)
+            im.save(path, "PNG", optimize=True)
+    except Exception:
+        pass
 
 
 def adb_exec_screencap():

@@ -1,6 +1,7 @@
 package tech.idct.weighttracker.data.repo
 
 import android.content.Context
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import tech.idct.weighttracker.data.db.AppDatabase
@@ -156,19 +157,29 @@ class WeightRepository(private val db: AppDatabase) {
 
     /**
      * Restore replaces entries, tombstones and the plan wholesale — never merges.
-     * Settings stay: they describe this device, not the data.
+     * Settings stay, because they describe this device rather than the data; the
+     * one exception is [celebratedPlanKey], which belongs to the plan.
+     *
+     * All of it in one transaction: as separate commits, an interruption between
+     * the deletes and the inserts left the phone holding less than either side
+     * started with.
      */
     suspend fun replaceAllFromBackup(
         entries: List<WeightEntry>,
         tombstoneEpochDays: List<Long>,
         plan: Plan?,
+        celebratedPlanKey: String?,
     ) {
-        db.entries().deleteAll()
-        db.tombstones().deleteAll()
-        db.plans().deleteAll()
-        if (entries.isNotEmpty()) db.entries().upsertAll(entries.map { it.toRow() })
-        tombstoneEpochDays.forEach { db.tombstones().put(TombstoneRow(it)) }
-        plan?.let { db.plans().put(it.toRow()) }
+        db.withTransaction {
+            db.entries().deleteAll()
+            db.tombstones().deleteAll()
+            db.plans().deleteAll()
+            if (entries.isNotEmpty()) db.entries().upsertAll(entries.map { it.toRow() })
+            tombstoneEpochDays.forEach { db.tombstones().put(TombstoneRow(it)) }
+            plan?.let { db.plans().put(it.toRow()) }
+            val settings = db.settings().get() ?: SettingsRow()
+            db.settings().put(settings.copy(celebratedPlanKey = celebratedPlanKey))
+        }
     }
 
     // ---- destructive -------------------------------------------------------

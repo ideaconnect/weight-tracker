@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -26,6 +27,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -35,8 +39,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
+import tech.idct.weighttracker.data.account.BackupService
 import tech.idct.weighttracker.ui.AppUiState
 import tech.idct.weighttracker.ui.AppViewModel
+import tech.idct.weighttracker.ui.SignUpOutcome
 import tech.idct.weighttracker.ui.components.IconTapTarget
 import tech.idct.weighttracker.ui.components.PrimaryButton
 import tech.idct.weighttracker.ui.components.SecondaryButton
@@ -86,15 +92,20 @@ fun AccountScreen(
     val lastBackupAt by viewModel.backup.lastBackupAt.collectAsStateWithLifecycle()
     val duringOnboarding = !state.settings.onboardingComplete
 
-    var panel by remember { mutableStateOf(if (session != null) Panel.SIGNED_IN else Panel.SIGNED_OUT) }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var codeInput by remember { mutableStateOf("") }
-    var newPassword by remember { mutableStateOf("") }
-    var newEmail by remember { mutableStateOf("") }
+    // Saveable, all of it: the whole point of a code is that the user leaves for
+    // their mail app, and coming back to a blank signed-out panel — with an
+    // account already created but unverified — was a dead end.
+    var panel by rememberSaveable {
+        mutableStateOf(if (session != null) Panel.SIGNED_IN else Panel.SIGNED_OUT)
+    }
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var codeInput by rememberSaveable { mutableStateOf("") }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var newEmail by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var confirm by remember { mutableStateOf<Confirm?>(null) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirm by rememberSaveable { mutableStateOf<Confirm?>(null) }
 
     // Signing in and out are the only ways across this line, whichever panel
     // they happen on.
@@ -182,7 +193,22 @@ fun AccountScreen(
                     PrimaryButton(
                         if (busy) "Signing in…" else "Sign in",
                         enabled = !busy && email.contains('@') && password.isNotEmpty(),
-                        onClick = { run({ viewModel.accountSignIn(email.trim(), password) }) },
+                        onClick = {
+                            run({
+                                val failure = viewModel.accountSignIn(email.trim(), password)
+                                // An account created but never verified can only be
+                                // finished from the code panel, so send them there
+                                // rather than repeating the same refusal.
+                                if (failure != null && failure.contains("isn't verified")) {
+                                    viewModel.accountResendSignupCode(email.trim())
+                                    codeInput = ""
+                                    panel = Panel.VERIFY_SIGNUP
+                                    null
+                                } else {
+                                    failure
+                                }
+                            })
+                        },
                     )
                     Spacer(Modifier.height(10.dp))
                     SecondaryButton("Create an account", onClick = {
@@ -210,9 +236,29 @@ fun AccountScreen(
                     if (busy) "Creating…" else "Create account",
                     enabled = !busy && email.contains('@') && password.length >= 6,
                     onClick = {
-                        run({ viewModel.accountSignUp(email.trim(), password) }) {
-                            codeInput = ""
-                            panel = Panel.VERIFY_SIGNUP
+                        if (!busy) {
+                            error = null
+                            scope.launch {
+                                busy = true
+                                val outcome = viewModel.accountSignUp(email.trim(), password)
+                                busy = false
+                                when (outcome) {
+                                    is SignUpOutcome.CodeSent -> {
+                                        codeInput = ""
+                                        panel = Panel.VERIFY_SIGNUP
+                                    }
+                                    // The server will not admit the address is taken,
+                                    // so it never sent a code; promising one and
+                                    // waiting for it was the old dead end.
+                                    is SignUpOutcome.AlreadyRegistered -> {
+                                        password = ""
+                                        panel = Panel.SIGNED_OUT
+                                        error = "There's already an account with this " +
+                                            "address — sign in, or reset the password."
+                                    }
+                                    is SignUpOutcome.Failed -> error = outcome.message
+                                }
+                            }
                         }
                     },
                 )
@@ -348,7 +394,7 @@ fun AccountScreen(
                             color = if (lastBackupAt != null) colors.onSurface else colors.muted,
                         )
                     }
-                    WtRow(onClick = { confirm = Confirm.RESTORE }) {
+                    WtRow(onClick = { if (!viewModel.backupBusy) confirm = Confirm.RESTORE }) {
                         Icon(WtIcons.Restore, null, Modifier.size(21.dp), tint = colors.muted)
                         Column(
                             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -366,12 +412,12 @@ fun AccountScreen(
                             )
                         }
                         Text(
-                            "Restore",
+                            if (viewModel.backupBusy) "Working…" else "Restore",
                             style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
-                            color = colors.onTrack,
+                            color = if (viewModel.backupBusy) colors.muted else colors.onTrack,
                         )
                     }
-                    WtRow(onClick = { confirm = Confirm.CLEAR }) {
+                    WtRow(onClick = { if (!viewModel.backupBusy) confirm = Confirm.CLEAR }) {
                         Icon(WtIcons.Delete, null, Modifier.size(21.dp), tint = colors.muted)
                         Column(
                             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -390,7 +436,7 @@ fun AccountScreen(
                         }
                     }
                 }
-                ErrorText(error)
+                ErrorText(viewModel.backupMessage ?: error)
 
                 Spacer(Modifier.height(20.dp))
                 SectionLabel("SECURITY")
@@ -531,7 +577,7 @@ fun AccountScreen(
                 // backup rows rather than inside a dialog that has already gone.
                 onConfirm = {
                     confirm = null
-                    run({ viewModel.backupRestore() })
+                    viewModel.backupRestore()
                 },
                 onDismiss = { confirm = null },
             )
@@ -545,7 +591,7 @@ fun AccountScreen(
                 danger = true,
                 onConfirm = {
                     confirm = null
-                    run({ viewModel.backupClear() })
+                    viewModel.backupClear()
                 },
                 onDismiss = { confirm = null },
             )
@@ -565,6 +611,74 @@ fun AccountScreen(
             )
 
             null -> Unit
+        }
+    }
+
+    // §11: a wholesale replace must never silently win. When the stored backup was
+    // written by another device, the user picks which copy survives.
+    val conflict = viewModel.backupConflict
+    DialogScaffold(visible = conflict != null, onDismiss = viewModel::dismissBackupConflict) {
+        conflict?.let { BackupConflictPanel(it, viewModel) }
+    }
+}
+
+@Composable
+private fun BackupConflictPanel(
+    conflict: BackupService.Result.Conflict,
+    viewModel: AppViewModel,
+) {
+    val colors = WtTheme.colors
+    val stamp = conflict.at?.let {
+        Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).format(stampFormat)
+    }
+    Row {
+        Icon(WtIcons.CloudUpload, null, Modifier.size(24.dp), tint = colors.behind)
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Another device backed up more recently",
+            style = TextStyle(fontSize = 20.sp, lineHeight = 26.sp),
+            color = colors.onSurface,
+        )
+        Text(
+            buildString {
+                append("The backup ")
+                if (stamp != null) append("from $stamp ") else append("in the cloud ")
+                append("holds ")
+                append(
+                    if (conflict.entryCount == 1) "1 entry" else "${conflict.entryCount} entries"
+                )
+                append(". Replacing it with this phone's data can't be undone.")
+            },
+            style = TextStyle(fontSize = 13.5.sp, lineHeight = 21.sp),
+            color = colors.muted,
+        )
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        PrimaryButton(
+            label = "Restore that backup instead",
+            icon = WtIcons.Restore,
+            onClick = {
+                viewModel.dismissBackupConflict()
+                viewModel.backupRestore()
+            },
+        )
+        PrimaryButton(
+            label = "Replace it with this phone",
+            background = colors.behind,
+            contentColor = colors.background,
+            onClick = viewModel::backupReplaceRemote,
+        )
+        Box(
+            modifier = Modifier.fillMaxWidth().height(46.dp)
+                .clickable(onClick = viewModel::dismissBackupConflict),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "Decide later",
+                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium),
+                color = colors.muted,
+            )
         }
     }
 }
@@ -603,7 +717,11 @@ private fun ErrorText(message: String?) {
             message ?: "",
             style = TextStyle(fontSize = 12.5.sp, lineHeight = 18.sp),
             color = WtTheme.colors.behind,
-            modifier = Modifier.padding(start = 4.dp),
+            // Without this a screen-reader user submitting a wrong code heard
+            // nothing change at all.
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .semantics { liveRegion = LiveRegionMode.Polite },
         )
     }
 }

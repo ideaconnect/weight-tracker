@@ -14,8 +14,7 @@ class AccountTest : E2eTestBase() {
 
     @Test
     fun signup() {
-        val email = "e2e.signup@example.com"
-        deleteUser(email)
+        val email = testEmail("signup")
         resetApp(seed = true)
         launchApp()
         openAccount()
@@ -25,23 +24,23 @@ class AccountTest : E2eTestBase() {
         typeInto("EMAIL", email)
         typeInto("PASSWORD · AT LEAST 6 CHARACTERS", "e2e-signup-pass-1")
         screenshot("create-form")
+        val before = lastMailId(email)
         tap("Create account")
 
         waitFor("Check your email")
         screenshot("code-panel")
-        val code = waitForCode(email, "signup")
+        val code = waitForCode(email, "signup", before)
         typeInto("CODE", code)
         tap("Verify")
 
         waitFor("Verified")
         waitFor("Last backup date:")
         screenshot("signed-in")
-        deleteUser(email)
     }
 
     @Test
     fun login() {
-        val email = "e2e.login@example.com"
+        val email = testEmail("login")
         createConfirmedUser(email, "e2e-login-pass-1")
         resetApp(seed = true)
         launchApp()
@@ -55,12 +54,11 @@ class AccountTest : E2eTestBase() {
         waitFor("Verified")
         waitFor(email)
         screenshot("signed-in")
-        deleteUser(email)
     }
 
     @Test
     fun passwordReset() {
-        val email = "e2e.reset@example.com"
+        val email = testEmail("reset")
         createConfirmedUser(email, "old-password-1")
         resetApp(seed = true)
         launchApp()
@@ -89,12 +87,11 @@ class AccountTest : E2eTestBase() {
         tap("Sign in")
         waitFor("Verified")
         screenshot("signed-in-with-new-password")
-        deleteUser(email)
     }
 
     @Test
     fun passwordChange() {
-        val email = "e2e.pwchange@example.com"
+        val email = testEmail("pwchange")
         createConfirmedUser(email, "first-password-1")
         resetApp(seed = true, signedIn = email to "first-password-1")
         launchApp()
@@ -115,15 +112,13 @@ class AccountTest : E2eTestBase() {
         tap("Sign in")
         waitFor("Verified")
         screenshot("signed-in-with-changed-password")
-        deleteUser(email)
     }
 
     @Test
     fun emailChange() {
-        val email = "e2e.mailchange@example.com"
-        val newEmail = "e2e.mailchange.new@example.com"
+        val email = testEmail("mailchange")
+        val newEmail = testEmail("mailchange-new")
         createConfirmedUser(email, "mail-change-pass-1")
-        deleteUser(newEmail)
         resetApp(seed = true, signedIn = email to "mail-change-pass-1")
         launchApp()
         openAccount()
@@ -144,12 +139,11 @@ class AccountTest : E2eTestBase() {
         waitFor(newEmail)
         waitFor("Verified")
         screenshot("new-address-active")
-        deleteUser(newEmail)
     }
 
     @Test
     fun accountRemoval() {
-        val email = "e2e.remove@example.com"
+        val email = testEmail("remove")
         createConfirmedUser(email, "remove-me-pass-1")
         resetApp(seed = true, signedIn = email to "remove-me-pass-1")
         launchApp()
@@ -165,11 +159,11 @@ class AccountTest : E2eTestBase() {
         waitFor("Create an account")
         screenshot("signed-out-after-removal")
 
-        val rows = admin(
-            "sql",
-            "query" to "select id from auth.users where email = '$email'",
-        ).getJSONArray("rows")
-        assertEquals("the account must be gone server-side", 0, rows.length())
+        assertEquals(
+            "the account must be gone server-side",
+            false,
+            admin("user_exists", "email" to email).getBoolean("exists"),
+        )
         assertTrue(runBlockingEntriesCount() > 0)
     }
 

@@ -28,6 +28,14 @@ class WidgetsTest : E2eTestBase() {
         openGallery()
         placeWidget("BAR")
 
+        // The two lock-screen sizes were the only widgets no scenario ever placed.
+        launchApp()
+        openGallery()
+        placeWidget("GLANCE")
+        launchApp()
+        openGallery()
+        placeWidget("GLANCE_COMPACT")
+
         device.pressHome()
         SystemClock.sleep(1_500)
         screenshot("launcher-with-widgets")
@@ -35,6 +43,8 @@ class WidgetsTest : E2eTestBase() {
         val bound = device.executeShellCommand("dumpsys appwidget")
         assertTrue("ring widget must be bound", bound.contains("RingWidgetReceiver"))
         assertTrue("bar widget must be bound", bound.contains("BarWidgetReceiver"))
+        assertTrue("wide glance must be bound", bound.contains("GlanceWidgetReceiver"))
+        assertTrue("compact glance must be bound", bound.contains("GlanceCompactWidgetReceiver"))
     }
 
     /**

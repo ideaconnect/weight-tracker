@@ -171,10 +171,11 @@ fun PlanScreen(
             Spacer(Modifier.height(16.dp))
 
             WtRowGroup(radius = WtDimens.rowRadius) {
-                // A gain leaves this negative, and a loss-coloured negative reads as a
-                // contradiction next to an amber chart. Sign and colour follow the number.
+                // lostKg is already in the plan's own direction, so a negative value is
+                // ground given back either way. Only the word has to change: "Lost so
+                // far 2.0 kg" for someone whose goal is to gain read as the opposite.
                 StatLine(
-                    "Lost so far",
+                    if (stats.direction < 0f) "Gained so far" else "Lost so far",
                     if (stats.lostKg < 0f) "\u2212" + Units.formatWithUnit(-stats.lostKg, unit)
                     else Units.formatWithUnit(stats.lostKg, unit),
                     valueColor = if (stats.lostKg < 0f) colors.behind else colors.onTrack,

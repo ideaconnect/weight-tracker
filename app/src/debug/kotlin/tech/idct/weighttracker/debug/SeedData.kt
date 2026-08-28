@@ -7,6 +7,7 @@ import tech.idct.weighttracker.data.health.HealthConnectManager
 import tech.idct.weighttracker.data.repo.WeightRepository
 import tech.idct.weighttracker.domain.EntrySource
 import tech.idct.weighttracker.domain.Plan
+import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanMode
 import tech.idct.weighttracker.domain.Units
 import tech.idct.weighttracker.domain.WeightEntry
@@ -25,24 +26,25 @@ object SeedData {
         val repo = WeightRepository.get(app)
         repo.deleteAllData()
 
-        val startDate = LocalDate.of(2026, 7, 1)
+        // Day 57 of a 152-day plan — the specification's worked example — anchored to
+        // the device's today, so the fixture keeps those numbers on any date. Absolute
+        // dates rotted twice: first "today" lost its entry after 2026-08-27, then the
+        // plan line fell past the pinned reading and the on-track seed started reading
+        // behind (2026-09-06), and the plan would have expired outright on 2026-11-30.
+        val today = LocalDate.now()
+        val todayIndex = 57
+        val startDate = today.minusDays(todayIndex.toLong())
         val startKg = 82.4f
-        repo.savePlan(
-            Plan(
-                startDate = startDate,
-                startKg = startKg,
-                targetKg = 75.0f,
-                mode = PlanMode.BY_DATE,
-                targetDate = LocalDate.of(2026, 11, 30),
-                ratePerWeek = null,
-            )
+        val plan = Plan(
+            startDate = startDate,
+            startKg = startKg,
+            targetKg = 75.0f,
+            mode = PlanMode.BY_DATE,
+            targetDate = startDate.plusDays(152),
+            ratePerWeek = null,
         )
+        repo.savePlan(plan)
 
-        // The series always ends on the device's actual today — a fixed index
-        // rotted the moment midnight passed, leaving "today" with no entry and
-        // every test asserting against yesterday.
-        val todayIndex = java.time.temporal.ChronoUnit.DAYS
-            .between(startDate, LocalDate.now()).toInt().coerceAtLeast(7)
         // The prototype's own sample series: a steady fall with daily noise,
         // a few missing days, and every fourth reading arriving from a scale.
         val slope = if (behind) 0.0400f else 0.05614f
@@ -57,9 +59,12 @@ object SeedData {
             )
         }.toMutableList()
 
-        // Pin today's reading so the screens show the documented numbers.
+        // Today's reading is pinned relative to the plan line — 0.4 kg on the good
+        // side, or 0.7 on the wrong one — which on day 57 is the documented 79.2 and
+        // 80.3, and stays a true "ahead"/"behind" fixture forever.
+        val planToday = PlanMath.planKgAt(plan, todayIndex)
         entries[entries.lastIndex] = entries.last().copy(
-            kg = if (behind) 80.3f else 79.2f,
+            kg = Units.roundKg(planToday + if (behind) 0.7f else -0.4f),
             source = EntrySource.MANUAL,
         )
 

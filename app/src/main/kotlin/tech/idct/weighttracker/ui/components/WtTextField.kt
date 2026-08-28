@@ -26,6 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.password
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,6 +58,8 @@ fun WtTextField(
     onDone: (() -> Unit)? = null,
 ) {
     val colors = WtTheme.colors
+    // `password` is also the name of the semantics call below.
+    val isSecret = password
     var reveal by remember { mutableStateOf(false) }
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
@@ -86,7 +91,15 @@ fun WtTextField(
                 onValueChange = { next ->
                     onValueChange(if (code) next.filter(Char::isDigit).take(6) else next)
                 },
-                modifier = Modifier.weight(1f).testTag(label),
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag(label)
+                    // The label is a sibling Text, so without this TalkBack announced
+                    // an unlabelled edit box.
+                    .semantics {
+                        contentDescription = label
+                        if (isSecret) password()
+                    },
                 textStyle = TextStyle(
                     fontSize = if (code) 22.sp else 15.sp,
                     color = colors.onSurface,
@@ -103,10 +116,19 @@ fun WtTextField(
                     VisualTransformation.None
                 },
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = if (code) KeyboardType.NumberPassword else keyboardType,
+                    // Not NumberPassword: IMEs treat password fields as sensitive and
+                    // hide the clipboard suggestion, which is how most people enter a
+                    // code they just copied out of their mail app.
+                    keyboardType = if (code) KeyboardType.Number else keyboardType,
                     imeAction = imeAction,
                 ),
-                keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
+                // Overriding this unconditionally left the IME's Done key inert on every
+                // field, because no caller passes onDone.
+                keyboardActions = if (onDone != null) {
+                    KeyboardActions(onDone = { onDone() })
+                } else {
+                    KeyboardActions.Default
+                },
             )
             if (password) {
                 Box(Modifier.padding(start = 8.dp)) {

@@ -71,7 +71,13 @@ class SupabaseClient(context: Context) {
     }
 
     companion object {
-        val json = Json { ignoreUnknownKeys = true }
+        // encodeDefaults matters: without it a field that happens to equal its
+        // default is simply left out, which silently dropped the backup payload's
+        // version number and made the "made by a newer version" guard unable to fire.
+        val json = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
     }
 }
 

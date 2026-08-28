@@ -48,11 +48,38 @@ abstract class E2eTestBase {
 
     private var scenario: ActivityScenario<MainActivity>? = null
     private var shot = 0
+    private val ownedAccounts = linkedSetOf<String>()
 
     @After
     fun tearDownScenario() {
         scenario?.close()
         scenario = null
+    }
+
+    /**
+     * Cleanup belongs here, not at the end of the happy path: a scenario that
+     * failed half-way used to leave a live, verified account on the real project,
+     * reachable with a password committed in this repository.
+     */
+    @After
+    fun deleteOwnedAccounts() {
+        ownedAccounts.forEach { email -> runCatching { deleteUser(email) } }
+        ownedAccounts.clear()
+    }
+
+    /**
+     * A per-run address, so two runs — or two machines — never collide, and no
+     * scenario can read a verification code left behind by an earlier one.
+     */
+    protected fun testEmail(name: String): String {
+        val email = "e2e.$name.$runId@example.com"
+        ownedAccounts += email
+        return email
+    }
+
+    private val runId: String by lazy {
+        InstrumentationRegistry.getArguments().getString("runId")
+            ?: (System.currentTimeMillis() % 1_000_000L).toString()
     }
 
     // ---- backend admin -----------------------------------------------------
@@ -179,6 +206,11 @@ abstract class E2eTestBase {
     protected fun tapByDescription(description: String) {
         compose.onAllNodes(hasContentDescription(description)).onFirst().performClick()
         compose.waitForIdle()
+    }
+
+    protected fun assertNotVisible(text: String) {
+        val nodes = compose.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes()
+        check(nodes.isEmpty()) { "\"$text\" should not be on screen, but is" }
     }
 
     protected fun typeInto(tag: String, value: String) {
