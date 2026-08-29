@@ -14,9 +14,9 @@ import time
 import supa
 
 STAMP = str(int(time.time()))
-EMAIL = f"e2e.verify.{STAMP}@example.com"
-EMAIL2 = f"e2e.verify.{STAMP}.new@example.com"
-OTHER = f"e2e.other.{STAMP}@example.com"
+EMAIL = f"delivered+e2e.verify.{STAMP}@resend.dev"
+EMAIL2 = f"delivered+e2e.verify.{STAMP}.new@resend.dev"
+OTHER = f"delivered+e2e.other.{STAMP}@resend.dev"
 PW1, PW2 = "first-password-1", "second-password-2"
 
 failures = []
@@ -28,29 +28,22 @@ def check(name, ok, detail=""):
         failures.append(name)
 
 
-def wait_mail(email, action_type, after_id=0):
-    for _ in range(20):
-        m = supa.admin("last_mail", email=email, action_type=action_type).get("mail")
-        if m and int(m["id"]) > after_id:
-            return m
-        time.sleep(1)
-    return None
-
-
-def mail_id(email):
-    m = supa.admin("last_mail", email=email).get("mail")
-    return int(m["id"]) if m else 0
+def code_for(action_type, email, new_email=None):
+    """Account mail is delivered for real now, so there is no inbox to read.
+    GoTrue mints the same OTP on request, without sending."""
+    kw = {"type": action_type, "email": email}
+    if new_email:
+        kw["new_email"] = new_email
+    return supa.admin("generate_otp", **kw).get("email_otp")
 
 
 # --- signup with verification ------------------------------------------------
-supa.admin("clear_mail")
 s, b = supa.auth("/signup", {"email": EMAIL, "password": PW1})
 check("signup accepted", s == 200, f"{s} {b}")
 check("signup does not hand out a session before verification", not b.get("access_token"), str(b)[:120])
 
-mail = wait_mail(EMAIL, "signup")
-check("confirmation code captured by the mail hook", mail is not None)
-token = mail["token"] if mail else ""
+token = code_for("signup", EMAIL) or ""
+check("a signup code can be obtained", len(token) == 6, token)
 check("code is six digits", len(token) == 6 and token.isdigit(), token)
 
 s, b = supa.auth("/verify", {"type": "signup", "email": EMAIL, "token": token})
@@ -69,12 +62,11 @@ s, b = supa.auth("/token?grant_type=password", {"email": EMAIL, "password": "wro
 check("wrong password rejected", s in (400, 401), f"{s}")
 
 # --- password reset via emailed code ------------------------------------------
-before = mail_id(EMAIL)
 s, b = supa.auth("/recover", {"email": EMAIL})
 check("recover request accepted", s == 200, f"{s} {b}")
-mail = wait_mail(EMAIL, "recovery", before)
-check("recovery code captured", mail is not None)
-s, b = supa.auth("/verify", {"type": "recovery", "email": EMAIL, "token": mail["token"] if mail else ""})
+recovery_code = code_for("recovery", EMAIL) or ""
+check("recovery code obtained", len(recovery_code) == 6, recovery_code)
+s, b = supa.auth("/verify", {"type": "recovery", "email": EMAIL, "token": recovery_code})
 check("recovery code yields a session", s == 200 and b.get("access_token"), f"{s} {str(b)[:120]}")
 recovery_access = b.get("access_token", "")
 
@@ -92,12 +84,11 @@ check("login with the changed password", s == 200 and b.get("access_token"), f"{
 access = b.get("access_token", access)
 
 # --- email change, confirmed at the new address only ---------------------------
-before = mail_id(EMAIL2)
 s, b = supa.auth("/user", {"email": EMAIL2}, token=access, method="PUT")
 check("email change request accepted", s in (200, 201), f"{s} {str(b)[:120]}")
-mail = wait_mail(EMAIL2, "email_change", before)
-check("email-change code goes to the new address", mail is not None)
-s, b = supa.auth("/verify", {"type": "email_change", "email": EMAIL2, "token": mail["token"] if mail else ""})
+change_code = code_for("email_change_new", EMAIL, new_email=EMAIL2) or ""
+check("email-change code obtained for the new address", len(change_code) == 6, change_code)
+s, b = supa.auth("/verify", {"type": "email_change", "email": EMAIL2, "token": change_code})
 check("email-change code verifies", s == 200, f"{s} {str(b)[:120]}")
 access = b.get("access_token", access)
 s, b = supa.auth("/user", token=access, method="GET")
@@ -160,12 +151,11 @@ check("the arbitrary-SQL action is gone", r.get("_status") == 400, str(r)[:120])
 r = supa.admin("delete_user", email="someone.real@gmail.com")
 check("non-test addresses are refused", r.get("_status") == 400, str(r)[:160])
 
-r = supa.admin("last_mail", email="someone.real@gmail.com")
-check("codes for non-test addresses are unreadable", r.get("_status") == 400, str(r)[:160])
+r = supa.admin("generate_otp", type="recovery", email="someone.real@gmail.com")
+check("codes for non-test addresses cannot be minted", r.get("_status") == 400, str(r)[:160])
 
 # --- cleanup -------------------------------------------------------------------
 supa.admin("delete_user", email=OTHER)
-supa.admin("clear_mail")
 
 print()
 if failures:

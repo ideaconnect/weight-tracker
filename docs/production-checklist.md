@@ -19,30 +19,26 @@ tests drive. It should not be.
 - [ ] **Rotate `E2E_ADMIN_SECRET`** if it has ever been shared, and keep the
       copy in `secrets/` backed up somewhere the team can reach: nothing else
       can recover it.
-- [x] **Real SMTP is configured on the project** (2026-08-29).
-- [ ] **Turn the capture hook off, so that SMTP is actually used.** While
-      `[auth.hook.send_email]` is enabled GoTrue calls the hook *instead of*
-      sending, so no account email leaves the project no matter what SMTP says.
-      Set `enabled = false` on the hook and push with `e2e/config-push.sh`.
-
-      The E2E suite no longer stands in the way: it reads codes from the hook
-      when one exists and asks GoTrue to mint them otherwise, and every
-      code-dependent scenario is verified both ways. Prove it for yourself first:
-
-      ```
-      python e2e/run.py --generated-codes
-      ```
-
-- [ ] **Put the SMTP values in `secrets/smtp.env`** (`SMTP_HOST`, `SMTP_USER`,
-      `SMTP_PASS`, `SMTP_ADMIN_EMAIL`), matching what is configured on the
-      project. `supabase/config.toml` no longer carries them, and
-      `e2e/config-push.sh` refuses to push without them — previously the file
-      held a placeholder host, so any push silently replaced working SMTP
-      settings with a dead one.
-- [ ] **Drop `public.auth_mail`** once the hook is off. While the hook is on,
-      every verification and password-reset code is stored there in plain text.
-      Rows are pruned after 15 minutes, which is a development safeguard, not a
-      reason to keep the table where real users exist. Nothing else reads it.
+- [x] **Real SMTP is configured on the project** (Resend, 2026-08-29), and
+      account email is genuinely delivered: verification, password reset and
+      email change all send. Verified end to end — the credentials authenticate,
+      a test message reached the admin address, and `e2e/verify_backend.py`
+      drives all three flows against the live project.
+- [x] **The send-email capture hook is gone** — disabled, then the function
+      deleted and its config block removed. Nothing intercepts account mail.
+- [x] **`public.auth_mail` is dropped** (migration
+      `20260829120000_drop_auth_mail.sql`). Live verification and reset codes are
+      no longer stored anywhere.
+- [x] **SMTP values live in `secrets/smtp.env`**, not in the committed
+      `config.toml`, and `e2e/config-push.sh` refuses to push without them —
+      the file used to carry a placeholder host, so any push would have replaced
+      working SMTP settings with a dead one.
+- [ ] **Decide where the E2E suite runs.** It no longer needs a mail hook (it
+      asks GoTrue to mint codes) and it only ever addresses Resend's delivery
+      simulator, so it sends nothing real and generates no bounces. What remains
+      is `e2e-admin`: a service-role function, narrow and address-guarded, but
+      still privileged. Deploying it to a project that holds real users is a
+      choice to make deliberately — see the E2E section above.
 - [ ] **Check the email rate limits** in `[auth.rate_limit]`. They are currently
       raised to 720/hour so the test suite can run; production wants something
       closer to the default.

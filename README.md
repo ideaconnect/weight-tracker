@@ -73,14 +73,13 @@ without them — it just says so plainly rather than failing.
   and the app says so plainly.
 
 The Supabase project itself is code too: `supabase/` holds the config, the
-backups schema migration and two edge functions (both for testing only — see
-`docs/production-checklist.md`). `e2e/verify_backend.py`
-proves every auth and backup flow against the live project. One deliberate
-dev-stage choice: a send-email auth hook routes verification codes into a
-service-role-only table instead of sending real email. It is not load-bearing
-for the tests — they fall back to asking GoTrue for the same code, which
-`--generated-codes` exercises on purpose — so it can be switched off whenever
-the project is ready. See `docs/production-checklist.md`.
+schema migrations and one edge function (`e2e-admin`, for testing only — see
+`docs/production-checklist.md`). Account email is delivered for real through
+SMTP configured on the project; the credentials live in `secrets/smtp.env` and
+`e2e/config-push.sh` is the only sanctioned way to push config. `e2e/verify_backend.py`
+proves every auth and backup flow against the live project. The suite never reads an inbox: it asks
+GoTrue to mint the same verification code the user was emailed, and addresses
+every test account to Resend's delivery simulator, so it sends nothing real.
 
 **`secrets/keystore.properties`** (optional, never committed)
 
@@ -156,7 +155,6 @@ goes, and every account it creates is deleted afterwards even if it fails.
 python e2e/run.py                   # build, install, run everything
 python e2e/run.py --skip-build      # reuse the installed APKs
 python e2e/run.py backup restore    # a subset
-python e2e/run.py --generated-codes # as if the mail-capture hook were off
 ```
 
 Needs a running emulator, and `secrets/` populated (see `e2e/supa.py`) so the

@@ -73,13 +73,15 @@ the first one to be recorded here; the rest are noted for the same reason.
   lock-screen widgets, the backup conflict and the once-only trophy — and cleans
   up every account it creates even when a scenario fails.
 
-### Since SMTP was configured
+### Real account email
 
-- The E2E suite no longer depends on the mail-capture hook. It still prefers the
-  captured code — that is the one the app's own send produced — but falls back to
-  asking GoTrue to mint the same OTP, which sends nothing. `--generated-codes`
-  runs the suite as though the hook did not exist, so the hook can be retired
-  without breaking anything.
+- **Account email is delivered for real.** Verification, password reset and
+  email change all send through SMTP configured on the project. The capture hook
+  that stood in for it is gone — disabled, deleted, and its `auth_mail` table
+  dropped, so live codes are no longer stored anywhere.
+- The E2E suite stopped needing an inbox: it asks GoTrue to mint the same code,
+  which sends nothing, and addresses every test account to the mail provider's
+  delivery simulator so a run generates no real mail and no bounces.
 - `supabase/config.toml` no longer carries SMTP credentials. It held a
   placeholder host, which meant any `config push` silently replaced the
   project's working SMTP settings with a dead one; the values now come from

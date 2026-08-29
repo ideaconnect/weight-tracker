@@ -18,10 +18,9 @@ fi
 
 set -a
 . ./secrets/smtp.env
-. ./secrets/functions.env
 set +a
 
-for var in SMTP_HOST SMTP_USER SMTP_PASS SMTP_ADMIN_EMAIL SEND_EMAIL_HOOK_SECRET; do
+for var in SMTP_HOST SMTP_USER SMTP_PASS SMTP_ADMIN_EMAIL; do
     eval "value=\$$var"
     if [ -z "$value" ]; then
         echo "$var is not set in secrets/ — refusing to push." >&2

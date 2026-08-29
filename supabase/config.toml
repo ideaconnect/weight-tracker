@@ -245,9 +245,8 @@ otp_expiry = 3600
 
 # Uncomment to customize email template
 [auth.email.smtp]
-# PAIRED WITH [auth.hook.send_email] BELOW — read both before changing either.
-#
-# Real SMTP is configured on the project. This file is committed, so the values
+# Real SMTP is configured on the project, and account email is delivered for
+# real: there is no send-email hook any more. This file is committed, so the values
 # live in secrets/smtp.env instead of here, and `config push` FAILS if they are
 # unset rather than overwriting what the project already has. It used to carry a
 # placeholder host, which meant any push silently replaced working SMTP settings
@@ -272,18 +271,6 @@ sender_name = "Weight Tracker"
 # enabled = true
 # subject = "Your password has been changed"
 # content_path = "./templates/password_changed_notification.html"
-
-[auth.hook.send_email]
-# PAIRED WITH [auth.email.smtp] ABOVE — read both before changing either.
-#
-# While this is on, GoTrue calls the hook INSTEAD of sending, so the SMTP block
-# above is configured but unused: no account email actually leaves the project.
-# The hook stores every verification code in public.auth_mail so the E2E suite can
-# read it, which is a development arrangement and must not run where real users
-# are. See docs/production-checklist.md for how to retire it.
-enabled = true
-uri = "https://fxvdmzzkukcilysvahiy.supabase.co/functions/v1/auth-mail-hook"
-secrets = "env(SEND_EMAIL_HOOK_SECRET)"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

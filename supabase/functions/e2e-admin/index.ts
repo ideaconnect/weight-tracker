@@ -15,8 +15,12 @@ const URL = Deno.env.get("SUPABASE_URL")!;
 const KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SECRET = Deno.env.get("E2E_ADMIN_SECRET");
 
-/** The only addresses this function will act on. */
-const TEST_ADDRESS = /^e2e\.[a-z0-9._+-]+@example\.com$/i;
+/**
+ * The only addresses this function will act on: Resend's delivery simulator,
+ * plus-addressed per scenario. Nothing here can name a real mailbox, and the
+ * provider never attempts a real delivery, so the suite generates no bounces.
+ */
+const TEST_ADDRESS = /^delivered\+e2e\.[a-z0-9._-]+@resend\.dev$/i;
 
 function assertTestAddress(email: unknown): string {
   if (typeof email !== "string" || !TEST_ADDRESS.test(email)) {
@@ -119,25 +123,6 @@ Deno.serve(async (req) => {
           },
           { status: r.status },
         );
-      }
-
-      case "last_mail": {
-        const email = assertTestAddress(p.email);
-        const filter = p.action_type
-          ? `&action_type=eq.${encodeURIComponent(String(p.action_type))}`
-          : "";
-        const q = `/auth_mail?or=(email.eq.${encodeURIComponent(email)},new_email.eq.` +
-          `${encodeURIComponent(email)})${filter}&order=id.desc&limit=1`;
-        const r = await rest(q);
-        return Response.json({ mail: (r.body as unknown[])?.[0] ?? null });
-      }
-
-      case "clear_mail": {
-        // Only ever the addresses this function is allowed to touch.
-        const r = await rest(`/auth_mail?email=like.e2e.*%40example.com`, {
-          method: "DELETE",
-        });
-        return Response.json({ ok: r.status < 300 });
       }
 
       case "get_backup": {
