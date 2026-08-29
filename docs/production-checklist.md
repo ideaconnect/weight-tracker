@@ -5,6 +5,14 @@ configured for development convenience in ways that are wrong for a public
 release. Each item below is a decision or a credential someone has to supply —
 none of them can be settled from inside the repository.
 
+## Store identity
+
+- Package name: `tech.idct.weighttracker` (already the release
+  `applicationId`; the debug build appends `.debug` and never ships).
+- Play listing name: **Weight tracker with widgets**. The launcher label stays
+  the shorter "Weight Tracker" on purpose — a label that long is ellipsized
+  under the icon; the listing name and the label do not have to match.
+
 ## Supabase
 
 **Use a second project for the E2E suite.** Everything in this section follows
@@ -67,8 +75,12 @@ tests drive. It should not be.
       backup, so R8 does not break serialization or the HTTP path. Worth
       repeating whenever the proguard rules or the payload change — it is how
       the missing payload `version` field was caught.
-- [ ] **Real AdMob and Play Billing IDs.** Both are still Google's public test
-      values (see the README).
+- [x] **Real AdMob IDs.** Supplied by `secrets/admob.env` (`APP_ID`, `AD_ID`)
+      since 2026-08-29: release builds carry them, debug builds keep Google's
+      test units as AdMob policy asks. Without the file the release falls back
+      to test values and logs a warning.
+- [ ] **Real Play Billing product ID.** Still a placeholder in
+      `app/src/main/res/values/config.xml` (see the README).
 
 ## Known residual behaviour
 

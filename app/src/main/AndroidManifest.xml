@@ -35,9 +35,11 @@
         android:theme="@style/Theme.WeightTracker"
         tools:targetApi="35">
 
+        <!-- Filled from secrets/admob.env at build time; Google's test app ID
+             when that file is absent. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
+            android:value="${admobAppId}" />
         <meta-data
             android:name="com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION"
             android:value="true" />

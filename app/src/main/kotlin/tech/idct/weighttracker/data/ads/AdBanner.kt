@@ -13,6 +13,7 @@ import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
 import com.google.android.gms.ads.MobileAds
+import tech.idct.weighttracker.BuildConfig
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -22,10 +23,13 @@ import java.util.concurrent.atomic.AtomicBoolean
 object Ads {
 
     /**
-     * Google's public test IDs. Swap for the real AdMob unit before release; the app
-     * ID in AndroidManifest.xml has to change with it.
+     * The banner unit, decided at build time: debug builds always request
+     * Google's public test unit — AdMob policy forbids developing against live
+     * ads — and release carries the real unit from secrets/admob.env, falling
+     * back to the test unit when that file is absent. The matching app ID
+     * reaches AndroidManifest.xml through the admobAppId placeholder.
      */
-    const val BANNER_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+    val BANNER_UNIT_ID: String = BuildConfig.ADMOB_BANNER_ID
 
     private val initialised = AtomicBoolean(false)
 

@@ -17,6 +17,19 @@ val keystoreProperties = Properties().apply {
 }
 val hasReleaseKey = keystoreProperties.getProperty("storeFile") != null
 
+// The AdMob identity lives outside the repository the same way. Without the
+// file every build keeps Google's public test IDs, so a bare checkout still
+// builds and shows a (test) banner — but the release is not shippable, and
+// the build says so.
+val admobTestAppId = "ca-app-pub-3940256099942544~3347511713"
+val admobTestBannerId = "ca-app-pub-3940256099942544/6300978111"
+val admobProperties = Properties().apply {
+    val file = rootProject.file("secrets/admob.env")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val admobAppId = admobProperties.getProperty("APP_ID")?.trim() ?: admobTestAppId
+val admobBannerId = admobProperties.getProperty("AD_ID")?.trim() ?: admobTestBannerId
+
 android {
     namespace = "tech.idct.weighttracker"
     compileSdk = 36
@@ -29,6 +42,12 @@ android {
         versionName = "1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        // Google's guidance for development: the real app ID in the manifest,
+        // test ad units for every request. Only the release build asks the
+        // real banner unit for ads.
+        manifestPlaceholders["admobAppId"] = admobAppId
+        buildConfigField("String", "ADMOB_BANNER_ID", "\"$admobTestBannerId\"")
     }
 
     signingConfigs {
@@ -51,6 +70,13 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            buildConfigField("String", "ADMOB_BANNER_ID", "\"$admobBannerId\"")
+            if (admobProperties.isEmpty) {
+                logger.warn(
+                    "No secrets/admob.env — release will serve Google's test banner. " +
+                        "See docs/production-checklist.md."
+                )
+            }
             signingConfig = if (hasReleaseKey) {
                 signingConfigs.getByName("release")
             } else {
@@ -70,7 +96,10 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
 
     sourceSets["main"].kotlin.srcDir("src/main/kotlin")
     sourceSets["debug"].kotlin.srcDir("src/debug/kotlin")

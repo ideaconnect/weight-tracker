@@ -81,9 +81,10 @@ Supabase URL and publishable key. Values may be empty or placeholder; the app
 degrades gracefully and says so rather than failing. The Supabase project
 lives in `supabase/` (schema migration, auth config, two edge functions);
 `e2e/verify_backend.py` proves the backend contract, and `secrets/` (never
-committed) holds the admin secret the E2E tooling uses. AdMob IDs live in the manifest and
-`data/ads/AdBanner.kt` and are currently Google's public test values. Do not
-commit real credentials.
+committed) holds the admin secret the E2E tooling uses. The real AdMob IDs live
+in `secrets/admob.env` (`APP_ID` into the manifest placeholder, `AD_ID` into the
+release `BuildConfig`); debug builds and checkouts without that file use
+Google's public test values. Do not commit real credentials.
 
 ## Copy
 
