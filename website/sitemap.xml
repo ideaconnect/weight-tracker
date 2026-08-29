@@ -1,0 +1,25 @@
+---
+layout: null
+sitemap: false
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Published at https://idct.tech/weight-tracker/sitemap.xml and referenced from
+  the sitemap index at https://idct.tech/sitemap.xml (repo: ideaconnect.github.io).
+
+  Generated from the pages themselves: every page is listed unless its front
+  matter says `sitemap: false`, which the thanks page and 404 do because they
+  are noindex. The CI job checks that this list matches the canonical of every
+  indexable page. <changefreq> and <priority> are omitted on purpose.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{%- for p in site.pages %}
+{%- if p.sitemap != false %}
+{%- unless p.url contains ".html" or p.url contains ".xml" or p.url contains ".txt" or p.url contains ".webmanifest" %}
+  <url>
+    <loc>{{ p.url | absolute_url }}</loc>
+  </url>
+{%- endunless %}
+{%- endif %}
+{%- endfor %}
+</urlset>

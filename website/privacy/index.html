@@ -1,0 +1,242 @@
+---
+title: Privacy Policy
+description: >-
+  What Weight Tracker keeps on your phone, what reaches our servers only if you
+  switch on an account and backup, how Health Connect data is used, who else is
+  involved, and how to delete all of it. GDPR / RODO.
+---
+
+<section class="page-head">
+  <div class="wrap prose">
+    <span class="eyebrow">Legal</span>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: {{ site.last_updated }} · Applies to the Weight Tracker Android app (package <code>tech.idct.weighttracker</code>, listed on Google Play as "Weight tracker with widgets") and to this website.</p>
+
+    <div class="callout">
+      <p><strong>The short version.</strong> Weight Tracker works with no account and no network, and that is how it starts. Your weights, your plan and your settings live on your phone, and the app opts out of Android's own cloud backup so they stay there. If you create an account and switch on backup, one copy of your entries and plan is stored on our server under your email address, and you can delete it, or the whole account, from inside the app at any time. Health Connect data is read only to draw your chart. The free app shows one small banner ad from Google AdMob, which the widget unlock removes. There is no analytics and no tracking code in the app or on this site.</p>
+    </div>
+
+    <nav class="toc" aria-label="Contents">
+      <ol>
+        <li><a href="#controller">Who is responsible</a></li>
+        <li><a href="#device">What stays on your phone</a></li>
+        <li><a href="#collect">What reaches us, and why</a></li>
+        <li><a href="#health-connect">Health Connect</a></li>
+        <li><a href="#backup">Account and backup</a></li>
+        <li><a href="#ads">Advertising</a></li>
+        <li><a href="#recipients">Who else is involved</a></li>
+        <li><a href="#transfers">Transfers outside the EEA</a></li>
+        <li><a href="#deletion">Deleting your data</a></li>
+        <li><a href="#rights">Your rights</a></li>
+        <li><a href="#children">Children</a></li>
+        <li><a href="#security">Security</a></li>
+        <li><a href="#automated">Automated decisions</a></li>
+        <li><a href="#changes">Changes</a></li>
+      </ol>
+    </nav>
+
+    <h2 id="controller">1. Who is responsible (administrator danych)</h2>
+    <p>The controller of your personal data, the <em>administrator danych osobowych</em> within the meaning of the GDPR / RODO, is:</p>
+    <p>
+      <strong>IDCT Bartosz Pacholek</strong><br>
+      Kaszubska 12/8C<br>
+      70-403 Szczecin, Poland<br>
+      NIP (EU VAT): PL7642542255
+    </p>
+    <p>Contact for any privacy matter: the <a href="{{ '/contact/' | relative_url }}">contact form</a>.</p>
+    <p>We have not appointed a Data Protection Officer (inspektor ochrony danych); we are not required to. Requests go straight to the address above.</p>
+
+    <h2 id="device">2. What stays on your phone</h2>
+    <p>Everything the app needs to work is stored in a single database on your device, and by default nothing in it is sent anywhere. That covers:</p>
+    <ul>
+      <li><strong>Your weight entries:</strong> the date, the weight in kilograms, whether you typed it or it came from Health Connect, and for synced entries the Health Connect record id and the time it was recorded.</li>
+      <li><strong>Your plan:</strong> start date and weight, target weight, and whether a date, a pace or nothing is fixed.</li>
+      <li><strong>Deleted days:</strong> a list of dates you removed, kept so a sync never brings them back.</li>
+      <li><strong>Your settings:</strong> unit, theme, the Health Connect and background-sync switches, the reminder time, and the quick-log switch.</li>
+      <li><strong>The widget unlock:</strong> whether you own it and when Google Play last confirmed it. Google Play holds the purchase itself.</li>
+      <li><strong>A marker for the plan you have already celebrated,</strong> so the trophy screen shows once.</li>
+      <li><strong>Your sign-in session, if you have an account:</strong> the access and refresh tokens and your email address, so the app does not ask you to log in every time.</li>
+    </ul>
+    <p>Two things are true of all of it. First, <strong>the app opts out of Android's own cloud backup</strong> (<code>allowBackup</code> is off and the extraction rules exclude the database and the settings file from it), so Google's backup of your phone never carries any of this to your Google account. The one exception is a direct <strong>device-to-device transfer</strong> during the setup of a new phone, cable or local wireless, which does copy the database across: it happens only between two phones in your own hands and never through a server. Short of that, a new phone starts empty unless you use the app's own backup, described in <a href="#backup">section 5</a>. Second, <strong>Settings → Delete all data</strong> erases the whole database, and so does uninstalling the app.</p>
+    <p>The CSV export in Settings writes a file to wherever you point it. From that moment it is an ordinary file under your control, not something we hold.</p>
+    <p>The daily reminder is a local notification built on the phone from that same database. It contacts no server.</p>
+
+    <h2 id="collect">3. What reaches us, and why</h2>
+    <p>Data reaches our systems only when you use one of the optional features below, or this website. Article 13 GDPR asks for a lawful basis per purpose rather than one blanket basis, so each row names its own.</p>
+
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>Data</th><th>When</th><th>Why</th><th>Legal basis</th><th>Kept for</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Email address and password</td>
+          <td>Only if you create an account</td>
+          <td>To create and secure the account, confirm the address with a 6-digit code, and let you reset or change the password or the address.</td>
+          <td>Art. 6(1)(b), performance of the contract you asked for. The password is stored only as a hash by our authentication provider; we never see it.</td>
+          <td>Until you delete the account.</td>
+        </tr>
+        <tr>
+          <td>Verification and reset codes, and the emails that carry them</td>
+          <td>When you sign up, reset a password, or change your address</td>
+          <td>To prove you control the mailbox.</td>
+          <td>Art. 6(1)(b).</td>
+          <td>Codes expire within minutes. The emails are delivered by Resend; see <a href="#recipients">section 7</a>.</td>
+        </tr>
+        <tr>
+          <td>Your backup: every weight entry (date, weight, source, Health Connect record id and time), the list of deleted days, your plan, and the celebrated-plan marker</td>
+          <td>Only while the backup switch is on</td>
+          <td>To restore your history and plan on a new phone, at your request.</td>
+          <td>Art. 6(1)(b) for the service you asked for, and, because body weight is data concerning health, your <strong>explicit consent</strong> under Art. 9(2)(a). Switching backup on is that consent; switching it off withdraws it for future uploads, and <em>Clear backed-up data</em> removes what was already uploaded.</td>
+          <td>Until you clear it or delete the account. Turning the switch off stops uploads but leaves the last copy in place until you clear it.</td>
+        </tr>
+        <tr>
+          <td>Technical request data at our backend: IP address, timestamps, request paths, user agent</td>
+          <td>Whenever the app talks to our server, which is only when signed in</td>
+          <td>To keep the service up, diagnose failures and stop abuse.</td>
+          <td>Art. 6(1)(f), our legitimate interest in a working, non-abused service.</td>
+          <td>Short-lived operational logs held by our backend provider.</td>
+        </tr>
+        <tr>
+          <td>Advertising ID, IP address and device signals</td>
+          <td>When the banner on the home screen loads, unless you own the widget unlock</td>
+          <td>To show the one banner ad that funds the free app.</td>
+          <td>Art. 6(1)(f) for showing an ad at all. Google decides how the ad is selected under its own policy, and your controls are in <a href="#ads">section 6</a>. Google is an independent controller for this data; it never passes through our servers.</td>
+          <td>Per Google's own retention.</td>
+        </tr>
+        <tr>
+          <td>Purchase status of the widget unlock</td>
+          <td>If you buy it</td>
+          <td>To place the widgets and keep the banner off, including when Google Play cannot be reached.</td>
+          <td>Art. 6(1)(b).</td>
+          <td>The purchase is held by Google Play. On the phone we keep only whether you own it and when that was last confirmed. Nothing about it is sent to us.</td>
+        </tr>
+        <tr>
+          <td>Your name, email address, topic and message from the contact form</td>
+          <td>If you write to us</td>
+          <td>To answer you.</td>
+          <td>Art. 6(1)(f), legitimate interest in replying to correspondence; Art. 6(1)(c) where the message is a legal request we must handle.</td>
+          <td>As long as needed to deal with the matter.</td>
+        </tr>
+        <tr>
+          <td>Your IP address, when you open this website</td>
+          <td>Every visit</td>
+          <td>Serving the pages.</td>
+          <td>Art. 6(1)(f). Logged by GitHub, which hosts the site.</td>
+          <td>Per GitHub's own retention.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p><strong>What we deliberately do not have:</strong> no analytics SDK, no crash reporter, no advertising SDK beyond the banner itself, no location, no contacts, no identifiers of our own. The app never asks your age, your height, your sex or anything about you beyond the numbers you type.</p>
+
+    <h2 id="health-connect">4. Health Connect</h2>
+    <p>Health Connect is Google's on-device store for health data on Android. Weight Tracker can use it, and using it is your choice: the app works entirely without it.</p>
+
+    <h3>What the app asks for</h3>
+    <ul>
+      <li><strong>Read weight</strong> (<code>READ_WEIGHT</code>), required for any sync at all.</li>
+      <li><strong>Write weight</strong> (<code>WRITE_WEIGHT</code>), optional. Lets the app write the entries you type by hand into Health Connect, so other apps see them.</li>
+      <li><strong>Read health data in the background</strong> (<code>READ_HEALTH_DATA_IN_BACKGROUND</code>), optional and Android 15 or newer only. Lets the once-a-day sync run while the app is closed.</li>
+    </ul>
+    <p>Weight is the only data type the app reads or writes. It does not request, read or hold steps, heart rate, sleep, body fat, height or anything else.</p>
+
+    <h3>What it does with it</h3>
+    <p>Reading fills gaps in your history: for each day you did not type a weight, the app takes the earliest weight record that day from Health Connect and stores it in its own database, together with the record id and the time it was recorded, marked as synced. Three rules never change: a weight you typed is never overwritten by a synced one; a day you deleted in the app is never imported again; and when several records exist on one day, the earliest one counts. Writing, if you allowed it, stores your manual entries as weight records in Health Connect under Weight Tracker's name.</p>
+    <p>That is the whole of it. Health Connect data is <strong>used only to show and chart your weight and to compute the plan figures</strong> derived from it. It is <strong>never used for advertising</strong>, never made available to the advertising SDK, never used to make decisions about you, and <strong>never sold or shared</strong>. It leaves your phone in exactly one case: if you switch on the app's backup, your entries, including the synced ones, are part of the snapshot described in <a href="#backup">section 5</a>, and go only to our backend under your own account. Weight Tracker's use of Health Connect data follows Google's Health Connect permissions policy, including its limited-use requirements.</p>
+
+    <h3>Your controls</h3>
+    <ul>
+      <li>Grant, review or revoke each permission at any time in Health Connect's own settings on your phone, or from <em>Settings → Health Connect</em> in the app. Revoking read access stops syncing; the entries already imported stay in the app until you delete them.</li>
+      <li>Deleting an entry in Weight Tracker deletes it from the app and blocks it from being imported again. It does not delete the record from Health Connect, which belongs to the app that wrote it; do that in Health Connect.</li>
+      <li>Background sync can be switched off in Settings without touching the other permissions.</li>
+    </ul>
+
+    <h2 id="backup">5. Account and backup</h2>
+    <p>An account exists for one purpose: to back up your plan and history so a new phone can pick up where the old one left off. It is optional, and the app says so on every screen that offers it.</p>
+    <ul>
+      <li><strong>Creating it</strong> takes an email address and a password. We send a 6-digit code to the address and the account is confirmed when you enter it. Signing in on a phone changes nothing about the data on that phone.</li>
+      <li><strong>Backup is a switch.</strong> While it is on, every change on the phone uploads a fresh snapshot of your entries, deleted days and plan, automatically. Each account holds one snapshot; a new upload replaces the old one.</li>
+      <li><strong>Restore is only ever by hand.</strong> The app never overwrites your phone with the cloud copy on its own. When you choose <em>Restore</em>, the entries, plan and deleted days on the phone are replaced by the snapshot, in one step, and only if the whole snapshot can be read.</li>
+      <li><strong>Two phones, one account:</strong> if an upload would replace a snapshot that this phone did not write, the app stops and asks which copy to keep. It never merges and never silently overwrites.</li>
+      <li><strong>Clear backed-up data</strong> deletes the snapshot from our server and leaves the phone untouched.</li>
+      <li><strong>Delete account</strong> removes the account and its snapshot together. The entries and plan on the phone stay.</li>
+      <li><strong>Delete all data</strong> on the phone signs you out first, so an empty database can never be uploaded over a good backup by accident.</li>
+    </ul>
+    <p>The snapshot contains your weights, which are data concerning health. It is stored in a single row that only your account can read or write, enforced by row-level security at the database, and it travels over TLS. It is stored as you sent it; we do not open or use it for anything except giving it back to you.</p>
+
+    <h2 id="ads">6. Advertising</h2>
+    <p>The free app shows one banner, 320 by 50 pixels, at the bottom of the home screen. Nowhere else: not over the chart, not on any other screen, never full-screen. It is served by <strong>Google AdMob</strong>.</p>
+    <p>When the banner loads, Google's SDK sends Google your IP address, the Android advertising ID and device signals such as the model and language, and Google chooses what to show. Google is an independent controller for that data; how it uses it is described in <a href="https://policies.google.com/technologies/partner-sites" rel="noopener">Google's own policy</a>. The SDK also adds the <code>AD_ID</code> permission and the Android Privacy Sandbox permissions to the app automatically. None of this data passes through our servers, and Health Connect data is never made available to the SDK.</p>
+    <p>The app itself does not show a consent dialogue. The controls you have are:</p>
+    <ul>
+      <li><strong>The widget unlock</strong>, which removes the banner permanently. With it, the app requests no ads at all and the advertising SDK has nothing to send.</li>
+      <li><strong>Android's advertising settings</strong> (Settings → Google → Ads, or Settings → Privacy → Ads, depending on the phone), where you can delete the advertising ID or opt out of ad personalisation for every app on the device.</li>
+    </ul>
+    <p>You may also object under Art. 21 GDPR through the <a href="{{ '/contact/' | relative_url }}">contact form</a>. In candour: the ad request is made from your phone to Google, so there is no per-user switch on our side to flip; the two controls above are the effective ones, and both are entirely in your hands.</p>
+
+    <h2 id="recipients">7. Who else is involved</h2>
+    <ul>
+      <li><strong>Supabase</strong>, our backend (authentication and the backup database). A processor acting on our instructions under a data processing agreement. The app reaches <code>fxvdmzzkukcilysvahiy.supabase.co</code> only when you sign in, sign up or use backup.</li>
+      <li><strong>Resend</strong>, which delivers the emails an account needs: confirmation codes, password resets and address changes. A processor; it handles your email address and the contents of those messages on our instructions.</li>
+      <li><strong>Google Ireland Limited / Google LLC (AdMob)</strong>, advertising, as an independent controller. See <a href="#ads">section 6</a>.</li>
+      <li><strong>Google Play</strong>, distribution and payments. For purchases in the EEA and the UK, Google is the seller of record and handles the payment and any refund. We never see your payment details.</li>
+      <li><strong>Health Connect</strong> is an on-device store, not a recipient: the app reads from it and, if you allow, writes to it, on your phone. What Health Connect itself does with the data it holds is governed by Google's terms for it, not by this policy.</li>
+      <li><strong>Web3Forms</strong>, which delivers messages from the contact form. A processor. Your browser sends it your name, address and message only when you press send; nothing is loaded from it beforehand.</li>
+      <li><strong>GitHub</strong>, which hosts this website on GitHub Pages and logs the IP address of every visitor as part of serving it. The site loads no fonts, scripts or images from any other host and sets no cookies.</li>
+    </ul>
+    <p>We do not sell your data, we do not build advertising profiles of our own, and we do not share your data with anyone not listed here.</p>
+
+    <h2 id="transfers">8. Transfers outside the EEA</h2>
+    <p>Some of the providers above are established in, or use infrastructure in, the United States. Where data leaves the European Economic Area it is protected by the European Commission's <strong>Standard Contractual Clauses</strong>, and in some cases additionally by the provider's certification under the EU-US Data Privacy Framework. You can ask us for a copy of the safeguards relied on via the <a href="{{ '/contact/' | relative_url }}">contact form</a>.</p>
+
+    <h2 id="deletion">9. Deleting your data</h2>
+    <p>There are three buttons, because there are three places data can be, and each button does exactly what it says.</p>
+    <ul>
+      <li><strong>Settings → Delete all data</strong> wipes the database on the phone: entries, plan, deleted days, settings and the widget-unlock record. It signs you out first. It does not touch the cloud copy, and it does not touch Health Connect.</li>
+      <li><strong>Settings → Account &amp; backup → Manage → Clear backed-up data</strong> deletes the snapshot from our server and keeps the account.</li>
+      <li><strong>Settings → Account &amp; backup → Manage → Delete account</strong> deletes the account and its snapshot together: the authentication user, so your email address is gone from our systems, and the backup row. It is immediate and irreversible. There is no deactivated state and no grace period.</li>
+    </ul>
+    <p>Two things outlive an account deletion for a while: encrypted backups of the database at our backend provider keep traces until the backup they sit in rotates out, and the authentication service keeps a sign-in log (the address used and the IP it came from) as security record-keeping. Neither is used for anything else.</p>
+    <p>If you cannot get into the app, because you lost the phone or already uninstalled it, use the <a href="{{ '/delete-account/' | relative_url }}">out-of-app deletion page</a>. It explains what we ask for and what happens next.</p>
+    <p>Deleting your account does not cancel the widget unlock. That belongs to your Google Play account, not to your Weight Tracker account, and it is still there if you come back. Records the app wrote into Health Connect stay in Health Connect; delete them there.</p>
+
+    <h2 id="rights">10. Your rights</h2>
+    <p>Under the GDPR you have the right to:</p>
+    <ul>
+      <li><strong>access</strong> your data and get a copy of it (Art. 15). For the data on your phone, the CSV export is that copy; for the backup, ask us and we will send the snapshot;</li>
+      <li><strong>rectify</strong> anything inaccurate (Art. 16). Entries are editable in History and the plan on the Plan screen;</li>
+      <li><strong>erasure</strong> (Art. 17), the buttons in <a href="#deletion">section 9</a>, or ask us;</li>
+      <li><strong>restrict</strong> processing (Art. 18);</li>
+      <li><strong>data portability</strong> for the data you gave us (Art. 20). The CSV export and the backup snapshot are both machine-readable;</li>
+      <li><strong>object</strong> to processing based on legitimate interest (Art. 21);</li>
+      <li><strong>withdraw consent</strong> at any time where consent is the basis: for the backup, switch it off and clear the copy. Withdrawal does not affect the lawfulness of what happened before it.</li>
+    </ul>
+    <p>Exercise any of them through the <a href="{{ '/contact/' | relative_url }}">contact form</a>. We answer within one month, as Art. 12(3) requires.</p>
+
+    <h3>Complaints</h3>
+    <p>If you think we have handled your data badly, you can complain to the Polish supervisory authority:</p>
+    <p>
+      <strong>Prezes Urzędu Ochrony Danych Osobowych (UODO)</strong><br>
+      ul. Stanisława Moniuszki 1A<br>
+      00-014 Warszawa, Poland<br>
+      Tel. 22 531 03 00 · <a href="https://uodo.gov.pl" rel="noopener">uodo.gov.pl</a>
+    </p>
+
+    <h2 id="children">11. Children</h2>
+    <p>Weight Tracker is not directed at children and is not listed in Google Play's Families programme. In Poland the age at which a child can consent to an information society service on their own is <strong>16</strong>. If you are under 16, please do not create an account without the agreement of a parent or guardian; the app needs no account to work.</p>
+    <p>In fairness we should say what we do <em>not</em> do: the app never asks your age, so there is no age gate. On a phone a child uses, the effective measures are the ones a parent holds: do not create an account, and consider the widget unlock, which removes the banner. If you believe a child has given us data, tell us and we will erase it.</p>
+    <p>One more thing, because it matters more here than in most apps: a weight chart is a tool for an adult who has decided to change their weight. It is not a good thing to put in front of a child, and we would rather say so than pretend the question does not arise.</p>
+
+    <h2 id="security">12. Security</h2>
+    <p>Traffic between the app and our backend is encrypted in transit (HTTPS/TLS). Passwords are hashed by our authentication provider and are never visible to us. Sign-in tokens are stored in the app's private storage and, like everything else in the app, are excluded from Android cloud backup, so a restored phone backup cannot hand your session to another device; a direct device-to-device transfer, which only ever happens between two phones in your hands, carries them along with the rest. Each backup row can be read and written only by the account that owns it, enforced by row-level security at the database rather than by the app being polite.</p>
+
+    <h2 id="automated">13. Automated decision-making</h2>
+    <p>None. We do not profile you, and there is no automated decision-making producing legal or similarly significant effects on you within the meaning of Art. 22 GDPR. Ahead or behind is arithmetic against a line you drew.</p>
+
+    <h2 id="changes">14. Changes to this policy</h2>
+    <p>If this policy changes materially we will update the date at the top and, where the change matters to you, say so in the app. The current version always lives at this URL.</p>
+  </div>
+</section>

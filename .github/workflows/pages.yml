@@ -1,0 +1,235 @@
+name: Pages
+
+# Builds website/ with Jekyll and publishes it to GitHub Pages as a PROJECT page
+# under the ideaconnect org's apex custom domain, served at
+# https://idct.tech/weight-tracker/.
+#
+# One-time setup on this repo: Settings -> Pages -> Source: GitHub Actions, and
+# the custom-domain field left BLANK. The project inherits the org's apex domain,
+# configured on the ideaconnect.github.io repo, and serves under the
+# /weight-tracker/ path. A CNAME here would claim idct.tech at its root and
+# collide with the org page that owns it, so the workflow refuses one.
+#
+# The build runs on pull requests too, so a broken page is caught before it
+# reaches the domain; nothing is uploaded or deployed from a PR.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - website/**
+      - .github/workflows/pages.yml
+  pull_request:
+    paths:
+      - website/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel a publish that is already running.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: website
+
+      - name: Build with Jekyll
+        run: bundle exec jekyll build --strict_front_matter
+        env:
+          JEKYLL_ENV: production
+
+      # The privacy policy, the terms and the account-deletion page have to stay
+      # reachable at stable URLs: Google Play requires an active, publicly
+      # accessible, non-PDF policy URL and a web page for account deletion. A
+      # rename that quietly 404s one of them is a store-review failure, so the
+      # structure is asserted rather than discovered later.
+      - name: Verify required pages exist
+        run: |
+          missing=0
+          for f in \
+            _site/index.html \
+            _site/privacy/index.html \
+            _site/terms/index.html \
+            _site/delete-account/index.html \
+            _site/contact/index.html \
+            _site/contact/thanks/index.html \
+            _site/404.html \
+            _site/sitemap.xml \
+            _site/app-ads.txt \
+            _site/site.webmanifest \
+            _site/assets/css/site.css \
+            _site/assets/js/site.js \
+            _site/assets/img/icon/favicon.ico \
+            _site/assets/img/og-image.png
+          do
+            if [ ! -f "$f" ]; then echo "::error::missing $f"; missing=1; fi
+          done
+          exit $missing
+
+      # House style for this site: plain English, no em-dashes. The app's own
+      # copy uses them, which is exactly how one gets pasted in.
+      - name: Verify there are no em-dashes in the published pages
+        run: |
+          if grep -rn --include=*.html --include=*.xml --include=*.txt --include=*.webmanifest $'\xe2\x80\x94' _site; then
+            echo "::error::an em-dash (U+2014) reached the published site"
+            exit 1
+          fi
+
+      - name: Verify the app-ads.txt record is intact
+        run: |
+          grep -qxF 'google.com, pub-6904561240517963, DIRECT, f08c47fec0942fa0' _site/app-ads.txt \
+            || { echo "::error file=website/app-ads.txt::the DIRECT record line is missing or altered"; exit 1; }
+
+      # Web3Forms sends the visitor to whatever absolute URL is baked into the
+      # form. If it ever drifts from the thanks page, the visitor lands on a 404
+      # having just been told the message was sent.
+      - name: Verify the contact form redirect matches the thanks page
+        run: |
+          grep -q 'name="redirect" value="https://idct.tech/weight-tracker/contact/thanks/"' _site/contact/index.html \
+            || { echo "::error::contact form redirect does not point at /weight-tracker/contact/thanks/"; exit 1; }
+          grep -q 'name="access_key" value="c2c6a15e-e9d7-419e-b8d6-45ac8f7a0a67"' _site/contact/index.html \
+            || { echo "::error::contact form access key is missing"; exit 1; }
+
+      - name: Verify each canonical matches its own path
+        run: |
+          fail=0
+          check() {
+            grep -q "<link rel=\"canonical\" href=\"$2\">" "$1" \
+              || { echo "::error file=$1::canonical is not $2"; fail=1; }
+          }
+          check _site/index.html                https://idct.tech/weight-tracker/
+          check _site/privacy/index.html        https://idct.tech/weight-tracker/privacy/
+          check _site/terms/index.html          https://idct.tech/weight-tracker/terms/
+          check _site/delete-account/index.html https://idct.tech/weight-tracker/delete-account/
+          check _site/contact/index.html        https://idct.tech/weight-tracker/contact/
+          check _site/contact/thanks/index.html https://idct.tech/weight-tracker/contact/thanks/
+          exit $fail
+
+      # The sitemap must list exactly the indexable pages: every page whose
+      # <head> does not carry noindex, and nothing else.
+      - name: Verify the sitemap matches the indexable pages
+        run: |
+          python3 - <<'EOF'
+          import glob, re, sys, xml.etree.ElementTree as ET
+          NS = "{http://www.sitemaps.org/schemas/sitemap/0.9}"
+          listed = {e.text.strip() for e in ET.parse("_site/sitemap.xml").getroot().iter(NS + "loc")}
+          canon = set()
+          for page in glob.glob("_site/**/*.html", recursive=True):
+              html = open(page, encoding="utf-8").read()
+              if re.search(r'<meta name="robots" content="noindex">', html):
+                  continue
+              m = re.search(r'<link rel="canonical" href="([^"]+)"', html)
+              if m:
+                  canon.add(m.group(1))
+          missing, extra = canon - listed, listed - canon
+          for u in sorted(missing):
+              print(f"::error::sitemap.xml is missing {u}")
+          for u in sorted(extra):
+              print(f"::error::sitemap.xml lists {u}, which no indexable page claims as its canonical")
+          sys.exit(1 if (missing or extra) else 0)
+          EOF
+
+      # In-page anchors are checked by nothing else, and a renamed heading id
+      # fails silently: the link still resolves, it just scrolls nowhere.
+      - name: Verify every in-page anchor resolves
+        run: |
+          python3 - <<'EOF'
+          import re, glob, sys, os
+          def url_of(path):
+              rel = os.path.relpath(path, "_site").replace(os.sep, "/")
+              return "/weight-tracker/" + rel.replace("index.html", "")
+          ids = {}
+          for path in glob.glob("_site/**/*.html", recursive=True):
+              html = open(path, encoding="utf-8").read()
+              ids[url_of(path)] = set(re.findall(r'\sid="([^"]+)"', html))
+          fail = 0
+          for path in glob.glob("_site/**/*.html", recursive=True):
+              html = open(path, encoding="utf-8").read()
+              here = url_of(path)
+              for href in re.findall(r'href="([^"]*#[^"]+)"', html):
+                  page, frag = href.split("#", 1)
+                  target = here if page == "" else page
+                  if not target.startswith("/weight-tracker/"):
+                      continue
+                  if target not in ids:
+                      print(f"::error file={path}::{href} points at a page that does not exist")
+                      fail = 1
+                  elif frag not in ids[target]:
+                      print(f"::error file={path}::{href} has no matching id on {target}")
+                      fail = 1
+          sys.exit(fail)
+          EOF
+
+      # Two things that must never appear in the published tree: a cleartext
+      # http:// URL, and a third-party host nobody declared.
+      #
+      # Only one host receives a visitor's data (api.web3forms.com, on submit),
+      # and it is in the privacy policy's recipients list. Everything else is a
+      # plain outbound link, listed so that a new host appearing gets one
+      # deliberate look: a resource load and a link are one attribute apart.
+      - name: Verify no cleartext URLs and no undeclared third-party hosts
+        run: |
+          set -u
+          if grep -rn 'http://' _site --include=*.html --include=*.css --include=*.js --include=*.xml --include=*.webmanifest | grep -v 'w3.org' | grep -v 'sitemaps.org'; then
+            echo "::error::cleartext http:// URL in the published site"
+            exit 1
+          fi
+          grep -rhoE 'https://[a-zA-Z0-9.-]+' _site --include=*.html --include=*.css --include=*.js --include=*.xml --include=*.webmanifest | sed 's|https://||' | sort -u > hosts.txt
+          cat > allowed.txt <<'HOSTS'
+          idct.tech
+          api.web3forms.com
+          github.com
+          play.google.com
+          support.google.com
+          policies.google.com
+          health.google
+          uodo.gov.pl
+          uokik.gov.pl
+          HOSTS
+          sed -i 's/^ *//' allowed.txt
+          undeclared=$(grep -vxF -f allowed.txt hosts.txt || true)
+          rm -f hosts.txt allowed.txt
+          if [ -n "$undeclared" ]; then
+            echo "::error::undeclared third-party host(s): $undeclared"
+            echo "Add it to the allow-list in this step AND, if it receives data, to the recipients list in the privacy policy."
+            exit 1
+          fi
+
+      - name: Verify no project CNAME
+        run: test ! -f CNAME && test ! -f _site/CNAME
+
+      - uses: actions/configure-pages@v5
+        if: github.event_name != 'pull_request'
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
+        with:
+          path: website/_site
+
+  deploy:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

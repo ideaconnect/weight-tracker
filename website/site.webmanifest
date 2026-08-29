@@ -1,0 +1,14 @@
+{
+  "name": "Weight Tracker",
+  "short_name": "Weight Tracker",
+  "description": "Log it. Plot it. Watch the line come down.",
+  "start_url": "/weight-tracker/",
+  "scope": "/weight-tracker/",
+  "display": "browser",
+  "background_color": "#000000",
+  "theme_color": "#4fc97f",
+  "icons": [
+    { "src": "/weight-tracker/assets/img/icon/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/weight-tracker/assets/img/icon/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -12,3 +12,8 @@ local.properties
 *.keystore
 !debug.keystore
 secrets/
+
+# Jekyll build output and cache for website/
+website/_site/
+website/.jekyll-cache/
+website/.sass-cache/

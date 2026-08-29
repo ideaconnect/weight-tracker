@@ -1,0 +1,64 @@
+---
+title: Contact
+description: >-
+  Get in touch about Weight Tracker: bug reports, questions, requests about your
+  data, or a feature you wish it had.
+---
+
+<section class="page-head">
+  <div class="wrap prose">
+    <span class="eyebrow">Contact</span>
+    <h1>Get in touch</h1>
+    <p class="lead">Bug reports, questions about your data, trouble with the widget unlock, or a feature you wish the app had. All of it lands in the same inbox, and all of it gets read.</p>
+
+    <div class="callout">
+      <p><strong>Requests about your data</strong> (access, correction, deletion, a copy of your backup) are handled here too. Say which account the request is about and send the message from the email address the account uses, or give that address in the form. A form on its own proves nothing, so we reply to that address first and act once you have answered. The <a href="{{ '/privacy/' | relative_url }}">privacy policy</a> lists what we hold and for how long, and the <a href="{{ '/delete-account/' | relative_url }}">deletion page</a> walks through removing an account.</p>
+    </div>
+
+    <form class="contact-form" data-contact action="https://api.web3forms.com/submit" method="POST">
+      <input type="hidden" name="access_key" value="{{ site.web3forms_key }}">
+      <input type="hidden" name="subject" value="New message from the Weight Tracker website">
+      <input type="hidden" name="from_name" value="Weight Tracker website">
+      <input type="hidden" name="redirect" value="{{ '/contact/thanks/' | absolute_url }}">
+      <!-- Honeypot: bots fill it, people never see it. -->
+      <input type="checkbox" name="botcheck" class="hidden" style="display:none" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+      <div class="field">
+        <label for="name">Name</label>
+        <input type="text" name="name" id="name" placeholder="Your name" autocomplete="name" required>
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" name="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+      </div>
+
+      <div class="field">
+        <label for="topic">What is it about?</label>
+        <select name="topic" id="topic">
+          <option>A bug</option>
+          <option>A question</option>
+          <option>My data or my account</option>
+          <option>The widget unlock or a payment</option>
+          <option>A feature idea</option>
+          <option>Something else</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="message">Message</label>
+        <textarea name="message" id="message" rows="7" placeholder="What is on your mind? For a bug, the phone model and Android version help a lot." required></textarea>
+      </div>
+
+      <!-- Where a rejected submit is reported. Without it the browser would follow
+           the POST to api.web3forms.com and show raw JSON, with no way back. -->
+      <p class="form-error" data-form-error role="alert" hidden></p>
+
+      <button type="submit" class="btn btn-primary btn-block btn-lg">Send message</button>
+    </form>
+
+    <p class="updated" style="margin-top:22px">
+      The form is delivered by Web3Forms, a processor acting on our instructions; your name, address and message go to it when you press send, and to nobody else. Nothing is loaded from any third party when this page opens. With JavaScript on, the submit is sent in the background so a rejected message is reported here; with JavaScript off the form posts to Web3Forms directly and still sends.
+    </p>
+  </div>
+</section>

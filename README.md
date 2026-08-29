@@ -163,6 +163,27 @@ into an APK. The report with screenshots lands at `e2e/report/report.html`;
 the committed one is from the latest full run. `e2e/verify_backend.py` checks
 the server contract alone, with no device involved.
 
+## Website
+
+`website/` is the product site, published by `.github/workflows/pages.yml` to
+https://idct.tech/weight-tracker/ as a GitHub Pages project site under the org's
+apex domain (Settings → Pages → Source: GitHub Actions, custom domain left
+blank). It is a Jekyll site: `_layouts/default.html` is the one layout, the
+landing page is `index.html`, and the privacy policy, terms, account-deletion
+page and contact form each live in their own folder. Screenshots under
+`assets/img/shots/` were taken on the emulator from the debug fixture; the icon
+set and the Play Store assets in `assets/store/` are derived from
+`assets/icon.png`.
+
+```
+cd website && bundle install && bundle exec jekyll serve   # http://127.0.0.1:4000/weight-tracker/
+```
+
+The workflow builds on pull requests too and fails on anything that would be a
+silent problem live: a missing legal page, a canonical or sitemap mismatch, a
+dead in-page anchor, an undeclared third-party host, a cleartext URL, or an
+em-dash (house style for the site is plain English without them).
+
 ## Before a public release
 
 `docs/production-checklist.md` lists what is configured for development

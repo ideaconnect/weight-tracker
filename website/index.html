@@ -1,0 +1,447 @@
+---
+title: Weight Tracker
+description: >-
+  A weight tracker for Android with a chart worth opening the app for, plans by
+  date or by pace, six home-screen widgets, Health Connect sync and a daily
+  reminder that carries real numbers. Offline by default. One payment for the
+  widgets, no subscription.
+---
+
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-copy">
+      <span class="eyebrow">Weight tracker for Android</span>
+      <h1>
+        Log it. Plot it.
+        <span class="rotate" data-rotate='["Watch the line come down.","Know where you stand today.","See the finish before you get there.","Green means ahead. Amber means a nudge."]'>Watch the line come down.</span>
+      </h1>
+      <p class="lead">
+        One number a day is all it asks. Weight Tracker draws your weight against the plan you set,
+        tells you what today should look like, and puts the answer on your home screen so you never
+        have to open the app to know.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-play btn-lg" href="{{ site.play_url }}" rel="noopener">
+          {% include play-mark.svg %}
+          <span>Get it on Google Play</span>
+        </a>
+        <a class="btn btn-ghost btn-lg" href="#features">See what it does</a>
+      </div>
+      <ul class="hero-notes">
+        <li>Free to use</li>
+        <li>No account needed</li>
+        <li>No subscription, ever</li>
+        <li>Android 8.0 and up</li>
+      </ul>
+    </div>
+    <div class="hero-visual">
+      <div class="phone">
+        <img src="{{ '/assets/img/shots/home-dark.webp' | relative_url }}" width="720" height="1606" alt="The home screen: today's weight, a chart with the actual line, the plan line and the trend projection, and three cards with today's target, the last seven days and what is left to go." fetchpriority="high">
+      </div>
+      <div class="float-card a" aria-hidden="true"><small>Today's target</small>79.6 kg</div>
+      <div class="float-card b" aria-hidden="true"><small>vs plan</small><span class="green">0.4 kg ahead</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-label="What you see every morning">
+  <div class="wrap">
+    <div class="stats reveal">
+      <div class="stat">
+        <small>Today's target</small>
+        <strong>79.6<em>kg</em></strong>
+        <span class="green">0.4 kg ahead of plan</span>
+      </div>
+      <div class="stat">
+        <small>Last 7 days</small>
+        <strong>−0.5<em>kg</em></strong>
+        <span class="muted">Plan asks 0.34 a week</span>
+      </div>
+      <div class="stat">
+        <small>Left to go</small>
+        <strong>4.2<em>kg</em></strong>
+        <span class="muted">On pace for 2026-11-12</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="chart">
+  <div class="wrap">
+    <div class="split">
+      <div class="reveal">
+        <span class="eyebrow">The chart</span>
+        <h2>A chart worth opening the app for.</h2>
+        <p class="lead">Five layers, always in the same order, so you can read it in a glance: gridlines, the tolerance band, the dashed plan line, the dotted trend projection, and your actual weights on top.</p>
+        <ul class="checks">
+          <li><strong>Drag to scrub</strong> along the line and read any day. Tap a point to see the entry.</li>
+          <li><strong>Pinch to zoom</strong> from 1× to 8×, around today.</li>
+          <li><strong>Four ranges:</strong> 7 days, 30 days, 90 days, or the whole plan.</li>
+          <li><strong>The trend</strong> projects where your own pace lands you, and the plan screen says the date out loud.</li>
+          <li><strong>A tolerance band</strong> of ±0.6 kg around the plan, so a salty dinner does not read as failure.</li>
+        </ul>
+      </div>
+      <div class="reveal">
+        <div class="chart-card" data-chart title="Tap to replay">
+          <svg viewBox="0 0 560 300" role="img" aria-label="An animated version of the chart: the actual weight line comes down from 82.4 kg towards the 75.0 kg goal, inside a band around the dashed plan line.">
+            <g class="chart-grid">
+              <line x1="52" y1="30" x2="540" y2="30"/>
+              <line x1="52" y1="85" x2="540" y2="85"/>
+              <line x1="52" y1="140" x2="540" y2="140"/>
+              <line x1="52" y1="195" x2="540" y2="195"/>
+              <line x1="52" y1="250" x2="540" y2="250"/>
+            </g>
+            <g class="chart-axis">
+              <text x="8" y="34">84.2</text>
+              <text x="8" y="89">81.5</text>
+              <text x="8" y="144">78.7</text>
+              <text x="8" y="199">75.9</text>
+              <text x="8" y="254">73.2</text>
+              <text x="92" y="278">07-21</text>
+              <text x="212" y="278">08-30</text>
+              <text x="332" y="278">10-09</text>
+              <text x="452" y="278">11-18</text>
+            </g>
+            <polygon class="chart-band" points="80,52 520,206 520,230 80,76"/>
+            <line class="chart-today" x1="240" y1="30" x2="240" y2="250"/>
+            <path class="chart-plan" d="M80 64 L520 218"/>
+            <path class="chart-trend" d="M240 115 L520 205"/>
+            <path class="chart-actual" d="M80 60 L88 66 L96 58 L104 70 L112 63 L120 74 L128 68 L136 78 L144 72 L152 82 L160 76 L168 87 L176 80 L184 92 L192 85 L200 96 L208 90 L216 101 L224 95 L232 106 L240 100"/>
+            <circle class="chart-pulse" cx="240" cy="100" r="6"/>
+            <circle class="chart-dot" cx="240" cy="100" r="5"/>
+            <circle class="chart-goal" cx="520" cy="218" r="5"/>
+            <text class="chart-goal-label" x="452" y="240">75.0 goal</text>
+          </svg>
+          <div class="legend">
+            <span><i></i>Actual</span>
+            <span><i class="dash"></i>Plan</span>
+            <span><i class="dot"></i>Trend</span>
+            <span><i class="band"></i>±0.6 band</span>
+          </div>
+          <p class="hint">Tap the chart to draw it again. The real one is drawn from your own numbers.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Everything in the box</span>
+      <h2>Small app. Complete feature list.</h2>
+      <p class="lead">Nothing here is a teaser for a bigger tier. Every feature below ships in the free app, except the widgets, which are one payment.</p>
+    </div>
+    <div class="features">
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 18h16M5 15l4-5 3 3 6-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h3>One plan, three ways to set it</h3>
+        <p>Pick a target weight, then choose what stays fixed: <strong>a date</strong>, <strong>a weekly pace</strong>, or <strong>no deadline</strong> at all. The app works out the rest: the daily rate, what is needed per week, the projected finish and the daily energy deficit it amounts to, rounded to the nearest 10 kcal.</p>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 3v18M3 12h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+        <h3>Gaining works too</h3>
+        <p>Set a target above where you are and every number flips its sign. Ahead still means the good side of the line. Same maths, same chart, no special mode.</p>
+      </article>
+      <article class="feature reveal">
+        <span class="icon amber" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <h3>Green ahead, amber behind</h3>
+        <p>One status colour, everywhere it matters: the line, the band, the dots, every progress bar, both rings, every widget and the projected finish date. Nothing else changes colour, so you always know what it means.</p>
+      </article>
+      <article class="feature wide reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="3" width="8" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="3" width="8" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="13" width="8" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="13" y="13" width="8" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+        <h3>Six widgets, one for every corner</h3>
+        <p>A 2×2 progress ring, a 4×2 progress bar, a 4×2 chart, a 4×4 chart with stats, and a lock-screen glance in a wide and a compact width. They redraw the moment you log, and they follow the light or dark theme of the app.</p>
+        <a href="#widgets">See the widgets</a>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M6 17V9a6 6 0 0 1 12 0v8l1.5 2h-15z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 21h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <h3>A reminder with real numbers</h3>
+        <p>Every day at the time you choose, the notification says where you stand and what you weighed yesterday. Type today's number straight into it, or snooze it for an hour.</p>
+      </article>
+      <article class="feature wide reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M20 12a8 8 0 1 1-2.3-5.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h3>Health Connect, the polite way</h3>
+        <p>Your scale, your watch and your other fitness apps write to Health Connect. Weight Tracker reads from it and fills the gaps. The rules are simple and they never change:</p>
+        <ul>
+          <li><strong>Manual entries always win.</strong> A synced reading never overwrites a number you typed.</li>
+          <li><strong>Deleted days stay deleted.</strong> Remove a day and the sync will not sneak it back in.</li>
+          <li><strong>Morning wins.</strong> Several readings on one day? The earliest one counts.</li>
+          <li><strong>Write-back is optional.</strong> Let the app write your manual entries to Health Connect, or not.</li>
+          <li><strong>Sync on open,</strong> or once a day in the background on Android 15 and newer.</li>
+        </ul>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M7 18a4 4 0 0 1-.5-8 5.5 5.5 0 0 1 10.7 1.5A3.3 3.3 0 0 1 17 18z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+        <h3>Offline by default, backup by choice</h3>
+        <p>Everything works with no account and no network. If you want your plan and history to survive a new phone, create an account with an email address and a 6-digit code, switch backup on, and uploads happen by themselves. Restoring is always by hand, and one tap clears the cloud copy.</p>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M8 4h8v3a4 4 0 0 1-8 0zM6 6H4a3 3 0 0 0 3 3M18 6h2a3 3 0 0 1-3 3M12 11v4M9 20h6M12 15v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h3>A finish line</h3>
+        <p>Cross your target and you get the trophy screen, once per plan. It is the one moment the app congratulates you. The rest of the time the numbers do the encouraging.</p>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
+        <h3>History you can read</h3>
+        <p>Every entry, week by week, with the weekly average, the change from the day before, and a badge that says whether it was typed or synced. Tap a row to edit or delete it.</p>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 4v11M8 11l4 4 4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <h3>Your data, as a file</h3>
+        <p>Export the whole history as a CSV whenever you like. It is your data. There is also a delete-everything button, and it does exactly that.</p>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 3a9 9 0 0 0 0 18 4.5 4.5 0 0 0 0-9 4.5 4.5 0 0 1 0-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+        <h3>Kilograms or pounds, black or white</h3>
+        <p>Switch units at any time; the stored numbers never change. Dark mode is true black so AMOLED screens switch pixels off, and it is painted before the first frame so there is no white flash on launch.</p>
+      </article>
+      <article class="feature reveal">
+        <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="5" width="18" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18" stroke="currentColor" stroke-width="2"/></svg></span>
+        <h3>Honest pricing</h3>
+        <p>Free, with a single small banner on the home screen and nowhere else. One payment unlocks the six widgets and removes the banner for good. No subscription, no trial, no reminders to upgrade.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="status">
+  <div class="wrap">
+    <div class="split flip status-demo" data-status-demo>
+      <div class="reveal">
+        <div class="demo-grid">
+          <div class="demo-widget">
+            <div class="demo-ring">
+              <svg viewBox="0 0 120 120" aria-hidden="true">
+                <circle class="track" cx="60" cy="60" r="50"/>
+                <circle class="arc" cx="60" cy="60" r="50"/>
+                <text x="60" y="66" text-anchor="middle" data-ahead="43%" data-behind="28%">43%</text>
+              </svg>
+            </div>
+            <small style="text-align:center">of plan</small>
+          </div>
+          <div class="demo-widget">
+            <div class="row"><span class="big" data-ahead="79.2" data-behind="80.3">79.2<em>kg</em></span><span class="pct" data-ahead="43%" data-behind="28%">43%</span></div>
+            <div class="bar"><i></i></div>
+            <div class="row"><small>82.4 kg</small><small data-ahead="4.2 kg left" data-behind="5.3 kg left">4.2 kg left</small><small>75.0 kg</small></div>
+          </div>
+          <div class="demo-widget" style="grid-column: span 2">
+            <div class="row"><span class="big" data-ahead="79.2" data-behind="80.3">79.2<em>kg</em></span><small data-ahead="−0.4 vs plan" data-behind="+0.7 vs plan">−0.4 vs plan</small></div>
+            <svg class="demo-spark" viewBox="0 0 400 90" aria-hidden="true">
+              <polygon class="band" points="10,14 390,60 390,74 10,28"/>
+              <path class="plan" d="M10 21 L390 67"/>
+              <path class="line" d="M10 18 L30 24 L50 20 L70 28 L90 25 L110 33 L130 29 L150 37 L170 33 L190 41 L210 37 L230 45 L250 42"/>
+            </svg>
+          </div>
+        </div>
+        <div class="demo-controls">
+          <button class="btn btn-ghost" type="button" data-status-toggle aria-pressed="false">Skip the scale for a week</button>
+          <span class="verdict" data-status-label>0.4 kg ahead</span>
+        </div>
+      </div>
+      <div class="reveal">
+        <span class="eyebrow">The status colour</span>
+        <h2>No red. No guilt. Just a colour.</h2>
+        <p class="lead">When you are on the good side of the plan line, everything is green. Slip behind and the same things turn amber: the line, the band, the bars, the rings, the widgets and the finish date. A nudge, not a verdict.</p>
+        <p>Try it. Press the button and watch every surface change at once. That is section 6 of the specification the app is built to, and it is the reason a widget on your lock screen is enough to know how the week is going.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="widgets">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Widgets</span>
+      <h2>Know without opening the app.</h2>
+      <p class="lead">Six widgets, from a 2×2 ring to a 4×4 chart with stats, plus two sizes made for the lock screen. Place them from the launcher or straight from the app. They redraw the moment you log.</p>
+    </div>
+    <div class="gallery">
+      <figure class="reveal">
+        <div class="phone"><img src="{{ '/assets/img/shots/launcher-green.webp' | relative_url }}" width="720" height="1606" alt="A home screen with four Weight Tracker widgets in the light theme: the progress ring, the compact lock-screen glance, the progress bar and the chart, all green." loading="lazy"></div>
+        <figcaption><strong>Ahead of plan</strong>Ring, compact glance, bar and chart in the light theme.</figcaption>
+      </figure>
+      <figure class="reveal">
+        <div class="phone"><img src="{{ '/assets/img/shots/launcher-amber.webp' | relative_url }}" width="720" height="1606" alt="A home screen with the same widgets in the dark theme, all amber because the user is behind plan, alongside a widget from before the slip that is still green." loading="lazy"></div>
+        <figcaption><strong>Behind plan</strong>The same widgets in the dark theme, turned amber.</figcaption>
+      </figure>
+      <figure class="reveal">
+        <div class="phone"><img src="{{ '/assets/img/shots/launcher-green-big.webp' | relative_url }}" width="720" height="1606" alt="The 4 by 4 widget: the chart with the plan line and band, the daily kcal figure, a progress bar and three figures for what is left, the daily rate and the finish date." loading="lazy"></div>
+        <figcaption><strong>The 4×4</strong>Chart, progress bar, what is left, per day, and the finish.</figcaption>
+      </figure>
+    </div>
+    <ul class="widget-list reveal">
+      <li><b>2×2 Progress ring</b><span>Percentage of the plan complete, what is left, kcal per day.</span></li>
+      <li><b>4×2 Progress bar</b><span>Current weight, percentage, start and target on one bar.</span></li>
+      <li><b>4×2 Chart</b><span>A sparkline with the plan line and band, plus the 7-day change.</span></li>
+      <li><b>4×4 Chart + stats</b><span>The chart, the vs-plan chip and three figures.</span></li>
+      <li><b>4×1 Glance, wide</b><span>Ring, weight, percentage and a progress bar, made for the lock screen.</span></li>
+      <li><b>2×1 Glance, compact</b><span>Half the width: ring, weight and percentage.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">How it works</span>
+      <h2>Three steps. Then just the one, every morning.</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <h3>Log a weight</h3>
+        <p>Tap the plus, type the number on the big keypad, save. Yesterday's figure sits right there so you know you got it right. Or connect Health Connect and let your scale do the typing.</p>
+      </div>
+      <div class="step reveal">
+        <h3>Set a goal</h3>
+        <p>A target weight, and either a date, a pace, or nothing at all. The plan starts from your latest entry, so the line begins the day you decide.</p>
+      </div>
+      <div class="step reveal">
+        <h3>Watch the line</h3>
+        <p>Each new entry redraws the chart, the plan screen and every widget. When the line crosses the target, the trophy screen is waiting. Once. Then set the next one.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="screens">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Screens</span>
+      <h2>Every screen, nothing hidden.</h2>
+    </div>
+    <div class="strip reveal" aria-label="Screenshots of the app">
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/plan.webp' | relative_url }}" width="720" height="1606" alt="The plan screen: start, now and target weights with their dates, lost so far, left to go, needed per day and per week, and the date at the current pace." loading="lazy"></div><figcaption>The plan, in numbers</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/plan-edit.webp' | relative_url }}" width="720" height="1606" alt="Editing a goal: the target weight, a choice between by a date, at a pace and no deadline, and a list of dates with the weekly pace each one implies." loading="lazy"></div><figcaption>By a date, at a pace, or open-ended</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/log-sheet.webp' | relative_url }}" width="720" height="1606" alt="The log sheet: a large keypad, today's date and time, and yesterday's weight for reference." loading="lazy"></div><figcaption>Logging takes four taps</figcaption></figure>
+      <figure><div class="phone light"><img src="{{ '/assets/img/shots/history.webp' | relative_url }}" width="720" height="1606" alt="The history screen in the light theme: entries grouped by week with the weekly average, the daily change in green or amber, and a Manual or Sync badge on each row." loading="lazy"></div><figcaption>History, week by week</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/home-behind-dark.webp' | relative_url }}" width="720" height="1606" alt="The home screen while behind plan: the line, band, dot, progress bar and finish date are amber; the primary buttons stay green." loading="lazy"></div><figcaption>Behind plan, in amber</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/reminder-notification.webp' | relative_url }}" width="720" height="1606" alt="The daily reminder notification, expanded: Morning weigh-in, you are 0.4 kg ahead of plan, yesterday you were 79.4 kg, with Log, Open app and Snooze 1h actions." loading="lazy"></div><figcaption>The reminder carries numbers</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/reminder.webp' | relative_url }}" width="720" height="1606" alt="Reminder settings: a switch, a time with four quick presets, and a switch for logging straight from the notification." loading="lazy"></div><figcaption>Pick the time once</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/widgets-gallery.webp' | relative_url }}" width="720" height="1606" alt="The in-app widget gallery, showing each widget with live data and a note on how to place it." loading="lazy"></div><figcaption>The widget gallery, in the app</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/trophy.webp' | relative_url }}" width="720" height="1606" alt="The trophy screen: You did it, the starting weight, the weight now and the number of days, with buttons to set a new goal or keep tracking." loading="lazy"></div><figcaption>Once per plan</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/account.webp' | relative_url }}" width="720" height="1606" alt="The account screen: email and password fields, sign in, create an account, and forgot password, with a note that everything works without it." loading="lazy"></div><figcaption>An account is optional</figcaption></figure>
+      <figure><div class="phone"><img src="{{ '/assets/img/shots/settings.webp' | relative_url }}" width="720" height="1606" alt="Settings: units, appearance, Health Connect, background sync, daily reminder, account and backup, CSV export, the widget unlock and delete all data." loading="lazy"></div><figcaption>All the settings there are</figcaption></figure>
+      <figure><div class="phone light"><img src="{{ '/assets/img/shots/day-one.webp' | relative_url }}" width="720" height="1606" alt="Day one: no weight yet, a button to log the first weight, and shortcuts to import from Health Connect or set a goal." loading="lazy"></div><figcaption>Day one</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="privacy">
+  <div class="wrap">
+    <div class="split">
+      <div class="reveal">
+        <span class="eyebrow">Privacy</span>
+        <h2>Your weight is nobody's business. Including ours.</h2>
+        <p class="lead">Weight Tracker keeps your entries on your phone. There is no analytics, no tracking, and Android's own cloud backup of the app is switched off, so nothing leaves the device unless you turn something on.</p>
+        <ul class="checks">
+          <li><strong>No account required.</strong> Skip it and the app never talks to our servers at all.</li>
+          <li><strong>Backup is a switch you flip,</strong> and one tap deletes the cloud copy again.</li>
+          <li><strong>Health Connect data</strong> is used to draw your chart and for nothing else. Never for ads, never sold.</li>
+          <li><strong>Delete all data</strong> means all data. Delete account means the account and its backup.</li>
+        </ul>
+        <p style="margin-top:18px"><a href="{{ '/privacy/' | relative_url }}">Read the full privacy policy</a> · <a href="{{ '/delete-account/' | relative_url }}">How to delete your account</a></p>
+      </div>
+      <div class="reveal">
+        <div class="phone" style="width:min(300px,80vw);margin-inline:auto"><img src="{{ '/assets/img/shots/home-light.webp' | relative_url }}" width="720" height="1606" alt="The home screen in the light theme." loading="lazy"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="pricing">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Pricing</span>
+      <h2>Free. Then one payment, if you want the widgets.</h2>
+      <p class="lead">There is no subscription and there never will be one. The price of the unlock is shown in Google Play in your own currency.</p>
+    </div>
+    <div class="plans">
+      <div class="plan reveal">
+        <h3>Free</h3>
+        <div class="price">0 <small>forever</small></div>
+        <ul>
+          <li>The chart, the plans, the history, the reminder</li>
+          <li>Health Connect sync, on open and in the background</li>
+          <li>Account and cloud backup</li>
+          <li>CSV export, kg or lb, dark and light</li>
+          <li>One small banner on the home screen, nowhere else</li>
+          <li class="no">Widgets are shown as a preview only</li>
+        </ul>
+        <a class="btn btn-ghost" href="{{ site.play_url }}" rel="noopener">Get it on Google Play</a>
+      </div>
+      <div class="plan featured reveal">
+        <h3>Widgets unlock</h3>
+        <div class="price">One payment <small>no subscription</small></div>
+        <ul>
+          <li>All six widgets on the home screen and the lock screen</li>
+          <li>The banner is removed, permanently</li>
+          <li>Tied to your Google account, so it follows you to a new phone</li>
+          <li>Keeps working offline once confirmed</li>
+          <li>Everything in Free, of course</li>
+        </ul>
+        <a class="btn btn-primary" href="{{ site.play_url }}" rel="noopener">Unlock in the app</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <span class="eyebrow">Questions</span>
+      <h2>Things people ask.</h2>
+    </div>
+    <div class="faq reveal">
+      <details>
+        <summary>Do I need an account?</summary>
+        <p>No. The app is built to work with no account and no network. An account exists for one reason: to back up your plan and history so a new phone can pick up where the old one left off. It is an email address, a password and a 6-digit code, and you can delete it from inside the app.</p>
+      </details>
+      <details>
+        <summary>What does the widget unlock cost?</summary>
+        <p>Google Play shows the price in your currency before you buy. It is a single, one-time purchase through Google Play's billing, not a subscription. It unlocks the six widgets and removes the banner ad for good.</p>
+      </details>
+      <details>
+        <summary>Does it work with my scale?</summary>
+        <p>If your scale, watch or fitness app writes weight to Health Connect, yes. Weight Tracker reads weight from Health Connect and fills in the days you did not type. Your own entries always win, and a day you deleted is never imported again. It can also write your manual entries back, if you let it.</p>
+      </details>
+      <details>
+        <summary>What happens when I fall behind?</summary>
+        <p>The colour changes from green to amber. That is all. No red, no streak lost, no message telling you off. The plan screen still shows what is needed per day and per week to get back, and the trend line shows where your current pace lands you.</p>
+      </details>
+      <details>
+        <summary>Can I set a goal to gain weight?</summary>
+        <p>Yes. Set a target above your current weight and the same maths runs with the sign reversed. Ahead still means the good side of the plan line.</p>
+      </details>
+      <details>
+        <summary>Which Android versions are supported?</summary>
+        <p>Android 8.0 (API 26) and newer. Background sync with Health Connect while the app is closed needs Android 15; on older versions the app syncs every time you open it, which is what most people want anyway.</p>
+      </details>
+      <details>
+        <summary>Is this medical advice?</summary>
+        <p>No. Weight Tracker is a tracking tool. It plots the numbers you give it and does arithmetic on them. The energy figure is a rule-of-thumb estimate, not a prescription. Talk to a doctor or a dietitian before changing your weight in a hurry, and if eating or weight is a source of distress, please speak to a professional first.</p>
+      </details>
+      <details>
+        <summary>Can I get my data out?</summary>
+        <p>Yes, as a CSV file from Settings, whenever you like. And you can delete everything with one button, also from Settings.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="cta reveal">
+      <span class="eyebrow">Ready when you are</span>
+      <h2>One number a day. The chart does the rest.</h2>
+      <p class="lead">Free on Google Play. No account, no subscription, no nagging. Just a line, and where it is going.</p>
+      <div class="cta-row">
+        <a class="btn btn-play btn-lg" href="{{ site.play_url }}" rel="noopener">
+          {% include play-mark.svg %}
+          <span>Get it on Google Play</span>
+        </a>
+        <a class="btn btn-ghost btn-lg" href="{{ site.github_url }}" rel="noopener">Source on GitHub</a>
+      </div>
+    </div>
+  </div>
+</section>

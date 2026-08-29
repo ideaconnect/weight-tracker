@@ -1,0 +1,41 @@
+# Weight Tracker project site, published at https://idct.tech/weight-tracker/
+#
+# A PROJECT page under the ideaconnect org's apex domain: the CNAME for idct.tech
+# lives on the org's user-site repo, so this site serves under /weight-tracker/.
+# `baseurl` is therefore fixed here rather than taken from the Pages action, and
+# every internal link goes through `relative_url` / `absolute_url` so the same
+# source builds correctly at that path.
+title: Weight Tracker
+tagline: Log it. Plot it. Watch the line come down.
+description: >-
+  A weight tracker for Android with a chart worth opening the app for, plans by
+  date or by pace, six home-screen widgets, Health Connect sync, and a daily
+  reminder that carries real numbers. Offline by default, one payment for the
+  widgets, no subscription.
+url: https://idct.tech
+baseurl: /weight-tracker
+lang: en
+locale: en_US
+author: IDCT Bartosz Pacholek
+
+play_url: https://play.google.com/store/apps/details?id=tech.idct.weighttracker
+github_url: https://github.com/ideaconnect/weight-tracker
+web3forms_key: c2c6a15e-e9d7-419e-b8d6-45ac8f7a0a67
+last_updated: 2026-08-29
+
+markdown: kramdown
+permalink: pretty
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      sitemap: true
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - vendor
+  - .jekyll-cache

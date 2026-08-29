@@ -1,0 +1,59 @@
+---
+title: Delete your account
+description: >-
+  How to delete your Weight Tracker account and its backup, from inside the app
+  in four taps, or without the app installed. What is deleted, what stays, and
+  how long it takes.
+---
+
+<section class="page-head">
+  <div class="wrap prose">
+    <span class="eyebrow">Your data</span>
+    <h1>Delete your account</h1>
+    <p class="lead">Weight Tracker has a real delete button, and it really deletes. This page is for the case where you cannot reach it, and for anyone who wants to know exactly what happens when they press it.</p>
+
+    <h2 id="what">What an account is, and is not</h2>
+    <p>An account (an email address and a password) exists for one thing: backing up your plan and history so a new phone can restore them. Your weights themselves live on your phone. So there are two separate things you might want to delete, and a third that is not ours:</p>
+    <ul>
+      <li><strong>The account and its backup</strong>, on our server. This page.</li>
+      <li><strong>The data on the phone</strong>: <em>Settings → Delete all data</em> wipes the whole database, and uninstalling the app does the same.</li>
+      <li><strong>Weight records in Health Connect</strong> belong to Health Connect, whichever app wrote them. Delete them in Health Connect's own settings.</li>
+    </ul>
+
+    <h2 id="in-app">In the app</h2>
+    <ol>
+      <li>Open <strong>Settings</strong>, then <strong>Account &amp; backup</strong>, then <strong>Manage</strong>.</li>
+      <li>Tap <strong>Delete account</strong>.</li>
+      <li>Confirm.</li>
+    </ol>
+    <p>That single action deletes your authentication user, so your email address is gone from our systems, and deletes the backup snapshot stored under it. It is immediate and irreversible. The entries and plan on the phone stay exactly as they are; wipe them with <em>Delete all data</em> if you want those gone too.</p>
+    <p>If you only want the cloud copy gone and the account kept, tap <strong>Clear backed-up data</strong> on the same screen instead.</p>
+
+    <h2 id="without-app">Without the app</h2>
+    <p>Lost the phone, or already uninstalled? Send a deletion request through the <a href="{{ '/contact/' | relative_url }}">contact form</a>, choosing <em>My data or my account</em> as the topic. Tell us:</p>
+    <ul>
+      <li>that you want the account deleted, and</li>
+      <li>the email address the account uses.</li>
+    </ul>
+    <p>A form on its own proves nothing, so we reply to that address and ask you to confirm from it. As soon as you do, we delete the account and its backup, the same operation as the button above. In practice that is a matter of days; the legal deadline is one month from your request.</p>
+    <p>If you no longer control the mailbox, tell us that too. We cannot delete an account on the say-so of anyone who happens to know an address, but we can talk through what else would establish that it is yours.</p>
+
+    <h2 id="after">What is deleted, and what stays</h2>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Item</th><th>After deletion</th></tr></thead>
+      <tbody>
+        <tr><td>Your email address and password hash (the authentication user)</td><td>Deleted immediately.</td></tr>
+        <tr><td>The backup snapshot: entries, deleted days, plan</td><td>Deleted immediately.</td></tr>
+        <tr><td>Entries, plan and settings on your phone</td><td>Untouched. Use <em>Delete all data</em> or uninstall.</td></tr>
+        <tr><td>The widget unlock</td><td>Untouched. It belongs to your Google Play account and is still yours.</td></tr>
+        <tr><td>Weight records in Health Connect</td><td>Untouched. They belong to Health Connect; delete them there.</td></tr>
+        <tr><td>Traces in our backend provider's encrypted database backups</td><td>Gone when the backup they sit in rotates out. Not used for anything.</td></tr>
+        <tr><td>The authentication service's sign-in log (address and IP)</td><td>Kept for a short period as security record-keeping, then gone. Not used for anything else.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <p>The <a href="{{ '/privacy/' | relative_url }}#deletion">privacy policy</a> says the same, at greater length, and lists your other rights.</p>
+  </div>
+</section>
