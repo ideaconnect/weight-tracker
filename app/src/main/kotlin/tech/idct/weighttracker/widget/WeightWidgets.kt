@@ -36,6 +36,7 @@ import androidx.glance.layout.size
 import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
+import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import tech.idct.weighttracker.MainActivity
@@ -249,9 +250,16 @@ class RingWidget : BaseWeightWidget() {
         val c = cell(designContentHeightDp = 140f)
 
         val labelSp = c.text(12f)
+        val kcalSp = c.text(10.5f)
         val gap = c.space(8f)
-        // The ring takes everything the cell leaves after the line beneath it.
-        val diameter = minOf(c.width, c.height - labelSp * 1.5f - gap).coerceIn(56f, 260f)
+        // At the 2x2's declared 110dp minimum the cell holds exactly the 56dp ring
+        // floor plus one line, so the energy line joins only when room remains for it.
+        val kcal = kcalLabel(stats)?.takeIf {
+            c.height - labelSp * 1.5f - kcalSp * 1.5f - gap >= 56f
+        }
+        // The ring takes everything the cell leaves after the line(s) beneath it.
+        val labelsH = labelSp * 1.5f + if (kcal != null) kcalSp * 1.5f else 0f
+        val diameter = minOf(c.width, c.height - labelsH - gap).coerceIn(56f, 260f)
         val stroke = diameter * 0.079f
 
         Column(
@@ -295,6 +303,12 @@ class RingWidget : BaseWeightWidget() {
                 remainingLabel(stats, data),
                 style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = labelSp.sp),
             )
+            if (kcal != null) {
+                Text(
+                    kcal,
+                    style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = kcalSp.sp),
+                )
+            }
         }
     }
 }
@@ -311,6 +325,13 @@ class BarWidget : BaseWeightWidget() {
         val stats = data.stats!!
         val c = cell(designContentHeightDp = 78f)
         val gap = c.space(11f)
+
+        // The header carries the energy figure only when the row can hold weight,
+        // unit, kcal and percent together. 190dp covers the widest realistic
+        // strings at base type, and c.text scales that budget exactly as the fonts
+        // scale; a narrow 4x2 (a five-column grid hands one ~255dp) keeps the
+        // original three-item header instead of wrapping it.
+        val kcal = kcalLabel(stats)?.takeIf { c.width >= c.text(190f) }
 
         Column(
             modifier = GlanceModifier.fillMaxSize(),
@@ -334,6 +355,17 @@ class BarWidget : BaseWeightWidget() {
                     ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
+                if (kcal != null) {
+                    Text(
+                        kcal,
+                        style = TextStyle(
+                            color = ColorProvider(Color(palette.muted)),
+                            fontSize = c.text(11f).sp,
+                        ),
+                        maxLines = 1,
+                    )
+                    Spacer(GlanceModifier.defaultWeight())
+                }
                 Text(
                     pctLabel(stats),
                     style = TextStyle(
@@ -399,11 +431,16 @@ class ChartWidget : BaseWeightWidget() {
         // original side-by-side arrangement.
         val stacked = c.height > c.width * 0.4f
 
+        val kcal = kcalLabel(stats)
+
         if (stacked) {
             // Both figures sit in the header, so the whole area below belongs to the
             // chart. A separate footer row plus the axis date strip left the plot
             // barely 50 dp tall and flattened the line.
-            val headerH = bigSp * 1.35f
+            // The right column is two or three small lines tall; the header must be
+            // measured as whichever side is taller, or the chart under it overflows.
+            val rightLines = if (kcal != null) 3 else 2
+            val headerH = maxOf(bigSp * 1.35f, smallSp * 1.35f * rightLines)
             val chartH = (c.height - headerH - gap).coerceAtLeast(72f)
             Column(modifier = GlanceModifier.fillMaxSize()) {
                 Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
@@ -440,6 +477,15 @@ class ChartWidget : BaseWeightWidget() {
                                 fontSize = smallSp.sp,
                             ),
                         )
+                        if (kcal != null) {
+                            Text(
+                                kcal,
+                                style = TextStyle(
+                                    color = ColorProvider(Color(palette.muted)),
+                                    fontSize = smallSp.sp,
+                                ),
+                            )
+                        }
                     }
                 }
                 Spacer(GlanceModifier.height(gap.dp))
@@ -470,6 +516,11 @@ class ChartWidget : BaseWeightWidget() {
             val figuresW = (c.width * 0.3f).coerceIn(96f, 160f)
             val chartW = (c.width - figuresW - gap).coerceAtLeast(72f)
             val chartH = c.height.coerceAtMost(chartW / 1.9f)
+            // This branch serves the shortest cells, so a fourth line joins the
+            // figures column only when all four actually fit the height.
+            val kcalLine = kcal?.takeIf {
+                c.height >= bigSp * 1.35f + smallSp * 1.35f + c.text(10.5f) * 2.7f + 12f
+            }
             Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 Image(
                     provider = ImageProvider(
@@ -514,6 +565,16 @@ class ChartWidget : BaseWeightWidget() {
                             fontSize = c.text(10.5f).sp,
                         ),
                     )
+                    if (kcalLine != null) {
+                        Spacer(GlanceModifier.height(2.dp))
+                        Text(
+                            kcalLine,
+                            style = TextStyle(
+                                color = ColorProvider(Color(palette.muted)),
+                                fontSize = c.text(10.5f).sp,
+                            ),
+                        )
+                    }
                 }
             }
         }
@@ -537,14 +598,21 @@ class BigWidget : BaseWeightWidget() {
         val chipSp = c.text(12f)
         val tileLabelSp = c.text(10f)
         val tileValueSp = c.text(13.5f)
+        val kcalSp = c.text(11f)
         val gap = c.space(12f)
         val trackH = c.stroke(6f)
         val tilePadV = c.space(10f)
         val tileH = tileLabelSp * 1.4f + 2f + tileValueSp * 1.4f + tilePadV * 2f
 
+        // A quarter-width tile cannot hold "370 kcal" once the cell scales the type,
+        // so the energy figure is a full-width line under the chart instead — the
+        // same place the app itself puts it.
+        val kcal = kcalLabel(stats)
+        val kcalH = if (kcal != null) kcalSp * 1.4f + c.space(6f) else 0f
+
         // Every other row has a known height, so the chart takes the remainder — the
         // whole design grows with the cell rather than sitting in the top of it.
-        val fixed = headerSp * 1.4f + gap * 3f + trackH + tileH
+        val fixed = headerSp * 1.4f + gap * 3f + trackH + tileH + kcalH
         val chartH = (c.height - fixed).coerceIn(72f, c.width / 1.2f)
 
         Column(modifier = GlanceModifier.fillMaxSize()) {
@@ -601,6 +669,18 @@ class BigWidget : BaseWeightWidget() {
                 contentDescription = null,
                 modifier = GlanceModifier.fillMaxWidth().height(chartH.dp),
             )
+            if (kcal != null) {
+                Spacer(GlanceModifier.height(c.space(6f).dp))
+                Text(
+                    kcal,
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = kcalSp.sp,
+                        textAlign = TextAlign.Center,
+                    ),
+                    modifier = GlanceModifier.fillMaxWidth(),
+                )
+            }
             Spacer(GlanceModifier.height(gap.dp))
             ProgressTrack(stats.progress, palette, height = trackH.roundToInt().coerceAtLeast(4))
             Spacer(GlanceModifier.height(gap.dp))
@@ -656,6 +736,13 @@ class GlanceWidget : BaseWeightWidget() {
         // The ring shares the height with the bar, so it is sized against what is left.
         val diameter = (c.height - trackH - gap).coerceIn(26f, 44f)
 
+        // The middle line takes the energy figure only when ring, label and percent
+        // all fit the span at the height-scaled fonts (the label runs ~13em with the
+        // figure appended); a narrow 4x1 keeps the plain "left" label instead.
+        val kcal = kcalLabel(stats)?.takeIf {
+            c.width >= diameter + c.text(11.5f) * 13f + c.text(15f) * 2.8f + 22f
+        }
+
         Column(
             modifier = GlanceModifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
@@ -684,11 +771,13 @@ class GlanceWidget : BaseWeightWidget() {
                         ),
                     )
                     Text(
-                        remainingLabel(stats, data),
+                        if (kcal != null) "${remainingLabel(stats, data)} · $kcal"
+                        else remainingLabel(stats, data),
                         style = TextStyle(
                             color = ColorProvider(Color(palette.muted)),
                             fontSize = c.text(11.5f).sp,
                         ),
+                        maxLines = 1,
                     )
                 }
                 Spacer(GlanceModifier.defaultWeight())
@@ -776,4 +865,15 @@ private fun weekChangeLabel(stats: PlanStats, data: WidgetData): String {
 private fun aheadChipLabel(stats: PlanStats, data: WidgetData): String {
     val prefix = if (stats.aheadKg >= 0) "−" else "+"
     return prefix + Units.format(abs(stats.aheadKg), data.unit) + " vs plan"
+}
+
+/**
+ * The daily energy figure, mirroring Format.kcalCompact: "−370 kcal / day" is the
+ * deficit a loss plan asks for, "+370" the surplus of a gain plan. Null hides the
+ * line when there is no rate or nothing left.
+ */
+private fun kcalLabel(stats: PlanStats): String? {
+    if (!stats.hasKcal) return null
+    val sign = if (stats.direction > 0) "−" else "+"
+    return "$sign${stats.neededKcalRounded} kcal / day"
 }

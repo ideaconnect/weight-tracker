@@ -58,12 +58,39 @@ data class PlanStats(
     val startKg: Float get() = plan.startKg
     /** Whether a daily rate is meaningful at all. */
     val hasRate: Boolean get() = dated && !targetDatePassed
+
+    /**
+     * [neededPerDay] as energy: the daily kcal deficit (surplus on a gain plan)
+     * that pace amounts to, at 8400 kcal to the kilogram. Zero whenever there is
+     * no rate, like [neededPerDay] itself.
+     */
+    val neededKcalPerDay: Float get() = neededPerDay * PlanMath.KCAL_PER_KG
+
+    /**
+     * The same figure to the nearest 10 kcal — the number every surface prints,
+     * rounded once here so the home screen and the widgets cannot disagree.
+     */
+    val neededKcalRounded: Int get() = (neededKcalPerDay / 10f).roundToInt() * 10
+
+    /**
+     * Whether to print the energy figure at all: there must be a rate, and the
+     * rounded figure must not be zero. One rule, stated once, for every surface.
+     */
+    val hasKcal: Boolean get() = hasRate && neededKcalRounded > 0
 }
 
 object PlanMath {
 
     /** §5: the tolerance band is the plan line ±0.6 kg. */
     const val TOLERANCE_KG = 0.6f
+
+    /**
+     * The energy shorthand behind the kcal figures: one kilogram of body weight
+     * is taken as roughly 8400 kcal. An approximation by design — the app rounds
+     * the figure to the nearest 10 kcal and offers it as guidance, never as a
+     * prescription.
+     */
+    const val KCAL_PER_KG = 8400f
 
     /** §5: behind the plan line by more than 0.05 kg turns everything amber. */
     const val BEHIND_THRESHOLD_KG = 0.05f

@@ -45,6 +45,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import kotlin.math.max
 import kotlin.math.min
 
@@ -253,6 +254,9 @@ fun RingWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier = M
                 style = TextStyle(fontFamily = RobotoMono, fontSize = 12.sp),
                 color = colors.muted,
             )
+            Format.kcalCompact(stats)?.let {
+                Text(it, style = TextStyle(fontSize = 10.5.sp), color = colors.muted)
+            }
         }
     }
 }
@@ -274,6 +278,10 @@ fun BarWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier = Mo
                 Spacer(Modifier.width(6.dp))
                 Text(unit.label, style = TextStyle(fontSize = 12.sp), color = colors.muted)
                 Spacer(Modifier.weight(1f))
+                Format.kcalCompact(stats)?.let {
+                    Text(it, style = TextStyle(fontSize = 11.sp), color = colors.muted)
+                    Spacer(Modifier.weight(1f))
+                }
                 Text(
                     Format.percent(stats),
                     style = TextStyle(fontSize = 12.5.sp, fontWeight = FontWeight.Medium),
@@ -336,6 +344,9 @@ fun ChartWidgetPreview(
                         style = TextStyle(fontFamily = RobotoMono, fontSize = 10.5.sp),
                         color = colors.muted,
                     )
+                    Format.kcalCompact(stats)?.let {
+                        Text(it, style = TextStyle(fontSize = 10.5.sp), color = colors.muted)
+                    }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -385,6 +396,16 @@ fun BigWidgetPreview(
             }
             Spacer(Modifier.height(12.dp))
             Sparkline(entries, stats, Modifier.fillMaxWidth().height(120.dp), axes = unit)
+            Format.kcalCompact(stats)?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    it,
+                    style = TextStyle(fontSize = 11.sp),
+                    color = colors.muted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(12.dp))
             WtProgressBar(stats.progress)
             Spacer(Modifier.height(12.dp))
@@ -457,7 +478,9 @@ fun GlanceWidgetPreview(stats: PlanStats, unit: WeightUnit, modifier: Modifier =
                     color = colors.onSurface,
                 )
                 Text(
-                    "${Units.formatWithUnit(stats.leftKg, unit)} left",
+                    Format.kcalCompact(stats)
+                        ?.let { "${Units.formatWithUnit(stats.leftKg, unit)} left · $it" }
+                        ?: "${Units.formatWithUnit(stats.leftKg, unit)} left",
                     style = TextStyle(fontSize = 11.5.sp),
                     color = colors.muted,
                 )

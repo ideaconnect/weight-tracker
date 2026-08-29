@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -130,6 +131,17 @@ fun HomeScreen(
                     unit = unit,
                     today = state.today,
                 )
+                // The energy version of the daily rate, under the chart it belongs to.
+                Format.kcalNeeded(stats)?.let { line ->
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        line,
+                        style = TextStyle(fontSize = 11.5.sp),
+                        color = colors.muted,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                    )
+                }
             }
 
             // Two cards: today's target vs actual, last 7 days with the pace the plan asks.

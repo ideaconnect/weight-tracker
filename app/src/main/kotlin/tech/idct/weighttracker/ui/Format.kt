@@ -78,6 +78,24 @@ object Format {
         stats.projectedFinish?.let { "On pace: ${it.format(isoDate)}" } ?: ""
 
     /**
+     * The energy version of [rateNeeded]: neededPerDay × 8400 kcal/kg, rounded to
+     * the nearest 10 kcal in the domain. Null when there is no rate or nothing
+     * left to lose, so callers hide the line rather than print "0 kcal".
+     */
+    fun kcalNeeded(stats: PlanStats): String? {
+        if (!stats.hasKcal) return null
+        val word = if (stats.direction > 0) "deficit" else "surplus"
+        return "≈${stats.neededKcalRounded} kcal / day $word needed"
+    }
+
+    /** The widget-sized version: "−370 kcal / day" for a deficit, "+" for a surplus. */
+    fun kcalCompact(stats: PlanStats): String? {
+        if (!stats.hasKcal) return null
+        val sign = if (stats.direction > 0) "−" else "+"
+        return "$sign${stats.neededKcalRounded} kcal / day"
+    }
+
+    /**
      * Section 4: home shows the sync state as one line, with a manual "Sync now"
      * beside it.
      */

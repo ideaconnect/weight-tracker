@@ -72,6 +72,54 @@ class PlanMathTest {
     }
 
     @Test
+    fun `the worked example needs about a 370 kcal daily deficit`() {
+        val stats = PlanMath.stats(samplePlan, sampleEntries, today)
+        // 0.0442 kg/day × 8400 kcal/kg = 371.4 kcal, shown to the nearest 10.
+        assertEquals(371.4f, stats.neededKcalPerDay, 1.0f)
+        assertEquals(370, stats.neededKcalRounded)
+        assertTrue(stats.hasKcal)
+    }
+
+    @Test
+    fun `a gain plan turns the kcal figure into a surplus, still positive`() {
+        val gain = samplePlan.copy(startKg = 60f, targetKg = 68f)
+        val entries = listOf(
+            WeightEntry(start, 60f, EntrySource.MANUAL),
+            WeightEntry(today, 64f, EntrySource.MANUAL),
+        )
+        val stats = PlanMath.stats(gain, entries, today)
+        // 4 kg left over 95 days × 8400 = 353.7 kcal a day; the sign convention
+        // stays "positive is progress" and the direction field words it.
+        assertEquals(-1f, stats.direction, 0f)
+        assertEquals(353.7f, stats.neededKcalPerDay, 1.0f)
+        assertEquals(350, stats.neededKcalRounded)
+    }
+
+    @Test
+    fun `no rate means no kcal figure`() {
+        val open = PlanMath.stats(
+            samplePlan.copy(mode = PlanMode.NO_DEADLINE, targetDate = null),
+            sampleEntries,
+            today,
+        )
+        assertEquals(0, open.neededKcalRounded)
+        assertFalse(open.hasKcal)
+
+        val lapsed = PlanMath.stats(samplePlan, sampleEntries, LocalDate.of(2027, 1, 1))
+        assertEquals(0, lapsed.neededKcalRounded)
+        assertFalse(lapsed.hasKcal)
+
+        // Target reached: a rate still exists but there is nothing left to convert.
+        val reached = PlanMath.stats(
+            samplePlan,
+            sampleEntries + WeightEntry(today.plusDays(1), 75.0f, EntrySource.MANUAL),
+            today.plusDays(1),
+        )
+        assertEquals(0, reached.neededKcalRounded)
+        assertFalse(reached.hasKcal)
+    }
+
+    @Test
     fun `projected finish at the current pace is 2026-11-10`() {
         val stats = PlanMath.stats(samplePlan, sampleEntries, today)
         assertEquals(LocalDate.of(2026, 11, 10), stats.projectedFinish)
