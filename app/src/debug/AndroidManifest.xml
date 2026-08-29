@@ -18,5 +18,17 @@
             android:name="tech.idct.weighttracker.work.ReminderReceiver"
             android:exported="true"
             tools:replace="android:exported" />
+
+        <!--
+            Likewise the midnight widget refresh, so it can be fired without
+            waiting for the day to end:
+
+            adb shell am broadcast -a tech.idct.weighttracker.DAY_CHANGED \
+              -n <applicationId>/tech.idct.weighttracker.work.DayChangeReceiver
+        -->
+        <receiver
+            android:name="tech.idct.weighttracker.work.DayChangeReceiver"
+            android:exported="true"
+            tools:replace="android:exported" />
     </application>
 </manifest>

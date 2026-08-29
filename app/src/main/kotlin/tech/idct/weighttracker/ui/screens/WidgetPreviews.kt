@@ -17,37 +17,37 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanStats
 import tech.idct.weighttracker.domain.Units
 import tech.idct.weighttracker.domain.WeightEntry
 import tech.idct.weighttracker.domain.WeightUnit
 import tech.idct.weighttracker.ui.Format
 import tech.idct.weighttracker.ui.components.WtProgressBar
+import tech.idct.weighttracker.ui.theme.DarkWtColors
 import tech.idct.weighttracker.ui.theme.RobotoMono
 import tech.idct.weighttracker.ui.theme.WtDimens
 import tech.idct.weighttracker.ui.theme.WtTheme
+import tech.idct.weighttracker.widget.WidgetPainter
+import tech.idct.weighttracker.widget.WidgetPalette
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import kotlin.math.max
-import kotlin.math.min
 
 /**
  * Live in-app previews of the widget sizes, drawn from the same plan and
@@ -94,124 +94,39 @@ fun ProgressRing(
     }
 }
 
+/**
+ * The widget sparkline, drawn by [WidgetPainter] itself into a bitmap the exact
+ * size of this box. The preview used to re-implement the painter in Compose and
+ * the two drifted — a scale fixed in one was still wrong in the other.
+ */
 @Composable
 fun Sparkline(
     entries: List<WeightEntry>,
     stats: PlanStats,
     modifier: Modifier = Modifier,
     withBand: Boolean = true,
-    /** Gridlines and labels, to match what the placed 4x4 widget draws. */
-    axes: WeightUnit? = null,
+    /** Gridlines and labels, to match what the placed 4x2 and 4x4 widgets draw. */
+    axes: WidgetPainter.Axes? = null,
 ) {
-    val colors = WtTheme.colors
-    val accent = WtTheme.accent
-    val measurer = rememberTextMeasurer()
-    val axisStyle = TextStyle(fontFamily = RobotoMono, fontSize = 9.5.sp, color = colors.muted)
-    Canvas(modifier) {
-        val plan = stats.plan
-        val padX = 3.dp.toPx()
-        val padY = 5.dp.toPx()
-        val span = max(1, stats.spanDays)
-        val lastDay = max(
-            stats.daysSinceStart,
-            entries.lastOrNull()?.let { PlanMath.dayIndex(plan.startDate, it.date) } ?: 0,
-        )
-        val xMax = max(span, lastDay).toFloat().coerceAtLeast(1f)
-
-        // Same windowing as WidgetPainter: pre-plan history is clipped away, so it
-        // must not widen the vertical range either.
-        val plotted = entries.filter { PlanMath.dayIndex(plan.startDate, it.date) >= 0 }
-
-        var lo = min(plan.targetKg, plan.startKg) - 0.8f
-        var hi = max(plan.targetKg, plan.startKg) + 0.5f
-        plotted.forEach {
-            lo = min(lo, it.kg - 0.3f)
-            hi = max(hi, it.kg + 0.3f)
+    val dark = WtTheme.colors == DarkWtColors
+    val behind = WtTheme.behind
+    val palette = remember(dark, behind) { WidgetPalette(dark, behind) }
+    val density = LocalDensity.current.density
+    Box(
+        modifier.drawWithCache {
+            val bitmap = WidgetPainter.sparkline(
+                widthPx = size.width.roundToInt(),
+                heightPx = size.height.roundToInt(),
+                entries = entries,
+                stats = stats,
+                palette = palette,
+                withBand = withBand,
+                density = density,
+                axes = axes,
+            ).asImageBitmap()
+            onDrawBehind { drawImage(bitmap) }
         }
-
-        // Axes claim a left gutter and a bottom strip, exactly as WidgetPainter does.
-        val labelPx = if (axes != null) 9.5.sp.toPx() else 0f
-        val gutterL = if (axes != null) labelPx * 3.2f else 0f
-        val gutterB = if (axes != null) labelPx * 1.9f else 0f
-        val plotL = gutterL + padX
-        val plotR = size.width - padX
-        val plotT = padY
-        val plotB = size.height - gutterB - padY
-
-        fun x(day: Float) = plotL + (day / xMax) * (plotR - plotL)
-        fun y(kg: Float) = plotT + (hi - kg) / (hi - lo) * (plotB - plotT)
-
-        if (axes != null) {
-            val ticks = 4
-            val step = (hi - lo) / (ticks - 1)
-            for (i in 0 until ticks) {
-                val v = lo + step * i
-                val gy = y(v)
-                drawLine(colors.outline, Offset(plotL, gy), Offset(plotR, gy), strokeWidth = 1f)
-                val layout = measurer.measure(Units.format(v, axes), axisStyle)
-                drawText(
-                    layout,
-                    topLeft = Offset(plotL - layout.size.width - 3.dp.toPx(), gy - layout.size.height / 2f),
-                )
-            }
-            for (i in 0 until 3) {
-                val day = xMax * (i + 0.5f) / 3f
-                val date = plan.startDate.plusDays(day.toLong())
-                val layout = measurer.measure(date.format(Format.monthDay), axisStyle)
-                drawText(
-                    layout,
-                    topLeft = Offset(x(day) - layout.size.width / 2f, size.height - layout.size.height),
-                )
-            }
-        }
-
-        if (stats.dated && withBand) {
-            val band = Path().apply {
-                moveTo(x(0f), y(plan.startKg + PlanMath.TOLERANCE_KG))
-                lineTo(x(span.toFloat()), y(plan.targetKg + PlanMath.TOLERANCE_KG))
-                lineTo(x(span.toFloat()), y(plan.targetKg - PlanMath.TOLERANCE_KG))
-                lineTo(x(0f), y(plan.startKg - PlanMath.TOLERANCE_KG))
-                close()
-            }
-            drawPath(band, accent, alpha = 0.10f)
-        }
-
-        val dash = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 3.dp.toPx()))
-        if (stats.dated) {
-            drawLine(
-                colors.muted,
-                Offset(x(0f), y(plan.startKg)),
-                Offset(x(span.toFloat()), y(plan.targetKg)),
-                strokeWidth = 1.2.dp.toPx(),
-                pathEffect = dash,
-            )
-        } else {
-            drawLine(
-                colors.muted,
-                Offset(x(0f), y(plan.targetKg)),
-                Offset(x(xMax), y(plan.targetKg)),
-                strokeWidth = 1.2.dp.toPx(),
-                pathEffect = dash,
-            )
-        }
-
-        if (plotted.size >= 2) {
-            val path = Path()
-            plotted.forEachIndexed { index, entry ->
-                val day = PlanMath.dayIndex(plan.startDate, entry.date).toFloat()
-                if (index == 0) path.moveTo(x(day), y(entry.kg)) else path.lineTo(x(day), y(entry.kg))
-            }
-            drawPath(
-                path,
-                accent,
-                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-            )
-        }
-        plotted.lastOrNull()?.let { last ->
-            val day = PlanMath.dayIndex(plan.startDate, last.date).toFloat()
-            drawCircle(accent, radius = 3.dp.toPx(), center = Offset(x(day), y(last.kg)))
-        }
-    }
+    )
 }
 
 @Composable
@@ -354,7 +269,7 @@ fun ChartWidgetPreview(
                 entries = entries,
                 stats = stats,
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                axes = unit,
+                axes = WidgetPainter.Axes(unit, textSp = 8.5f, maxTicks = 3, maxDates = 3),
             )
         }
     }
@@ -395,7 +310,7 @@ fun BigWidgetPreview(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Sparkline(entries, stats, Modifier.fillMaxWidth().height(120.dp), axes = unit)
+            Sparkline(entries, stats, Modifier.fillMaxWidth().height(120.dp), axes = WidgetPainter.Axes(unit, textSp = 9.5f))
             Format.kcalCompact(stats)?.let {
                 Spacer(Modifier.height(6.dp))
                 Text(

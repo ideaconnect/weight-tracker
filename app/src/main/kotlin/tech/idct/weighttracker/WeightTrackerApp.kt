@@ -12,6 +12,7 @@ import tech.idct.weighttracker.data.repo.ThemePrefs
 import tech.idct.weighttracker.data.repo.WeightRepository
 import tech.idct.weighttracker.widget.WidgetUpdater
 import tech.idct.weighttracker.work.DailySyncWorker
+import tech.idct.weighttracker.work.DayChange
 import tech.idct.weighttracker.work.Reminder
 
 class WeightTrackerApp : Application() {
@@ -37,6 +38,7 @@ class WeightTrackerApp : Application() {
                 DailySyncWorker.cancel(this@WeightTrackerApp)
             }
             Reminder.reschedule(this@WeightTrackerApp)
+            DayChange.arm(this@WeightTrackerApp)
             WidgetUpdater.updateAll(this@WeightTrackerApp)
         }
     }

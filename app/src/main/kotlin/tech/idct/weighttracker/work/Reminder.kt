@@ -488,10 +488,12 @@ class ReminderReceiver : BroadcastReceiver() {
 }
 
 /**
- * Boot, package replace, time-zone change, and the exact-alarm grant arriving:
- * bring the alarm back in line with the settings. The daily sync job is not
- * touched here — WorkManager keeps it across reboots on its own, and
- * Application.onCreate reconciles it with the setting on the same start.
+ * Boot, package replace, a clock or time-zone change, and the exact-alarm grant
+ * arriving: bring the alarm back in line with the settings, re-arm the midnight
+ * widget refresh, and redraw the widgets — a clock change can move "today", and
+ * every number they show hangs off it. The daily sync job is not touched here —
+ * WorkManager keeps it across reboots on its own, and Application.onCreate
+ * reconciles it with the setting on the same start.
  */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -500,6 +502,12 @@ class BootReceiver : BroadcastReceiver() {
         Reminder.launch {
             try {
                 Reminder.rescheduleNow(app)
+                DayChange.arm(app)
+                if (intent.action == Intent.ACTION_TIME_CHANGED ||
+                    intent.action == Intent.ACTION_TIMEZONE_CHANGED
+                ) {
+                    DayChange.refresh(app)
+                }
             } finally {
                 pending?.finish()
             }

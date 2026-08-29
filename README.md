@@ -12,7 +12,8 @@ document.
 
 - **A chart worth opening the app for.** Five layers in order — gridlines,
   tolerance band, dashed plan line, dotted trend projection, and your actual
-  weights — with drag-to-scrub, tap, and pinch-to-zoom (1× to 8×).
+  weights — on round-number axes with calendar-aligned dates, with drag-to-scrub,
+  pinch-to-zoom about the fingers, and a two-finger pan.
 - **One plan at a time**, fixed by a date, by a weekly pace, or open-ended.
 - **Health Connect sync** that fills gaps only: your manual entries always win,
   and a deleted day is never re-imported.
@@ -148,6 +149,11 @@ adb shell am broadcast -a tech.idct.weighttracker.SHOW_REMINDER \
 # The snoozed re-post, an hour early
 adb shell am broadcast -a tech.idct.weighttracker.SHOW_SNOOZED_REMINDER \
   -n $PKG/tech.idct.weighttracker.work.ReminderReceiver
+
+# The midnight refresh that moves the widgets on to a new day, without
+# waiting for midnight (logcat tag DayChange reports what it did)
+adb shell am broadcast -a tech.idct.weighttracker.DAY_CHANGED \
+  -n $PKG/tech.idct.weighttracker.work.DayChangeReceiver
 ```
 
 The seeded series runs from 2026-07-01 to the device's current date, ending on
@@ -155,12 +161,13 @@ the specification's sample numbers (79.2 kg today, or 80.3 behind).
 
 ## End-to-end tests
 
-Twenty-six scenarios drive the real UI on an emulator against the real Supabase
+Twenty-eight scenarios drive the real UI on an emulator against the real Supabase
 project — accounts (sign-up with the emailed code, login, password reset and
 change, email change, deletion), the backup round trip, Health Connect in both
 directions, manual logging, widget placement (in both status colours), deleting all data,
 the daily reminder (its screen and preview, the notification with its inline
-reply and snooze, and the tap that opens the log sheet),
+reply and snooze, and the tap that opens the log sheet), the chart's ranges and
+gestures read back from its own axis, the two chart-carrying widgets,
 and the plan verdicts including the trophy screen — plus the paths people hit by
 accident: a wrong password, a wrong code, a resend, and signing up with an
 address that already has an account. Each scenario captures screenshots as it

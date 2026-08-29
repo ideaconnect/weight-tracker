@@ -39,15 +39,18 @@ class SyncService(
         if (!health.isAvailable) return Result(false, 0, "Health Connect is unavailable")
         if (!health.hasReadPermission()) return Result(false, 0, "Read permission not granted")
 
-        // Re-read a fortnight either side of the last sync so late-arriving records
-        // and edits made in other apps still land. Reading is cheap; missing a day
-        // is not.
+        // Every sync re-reads a whole year, and further back still if the plan is
+        // older than that: a diet runs for months, records arrive late, and edits
+        // made in other apps can touch any day of it. A fortnight used to be the
+        // window after the first sync, which silently dropped anything older — and
+        // the first sync with a plan never looked before the plan at all, so the
+        // history a scale already held was left behind. Reading is cheap: a year
+        // of weigh-ins is a few hundred rows, paged.
         val plan = repo.plan()
-        val from = when {
-            settings.lastSyncAt != null -> LocalDate.now().minusDays(14)
-            plan != null -> plan.startDate.minusDays(1)
-            else -> LocalDate.now().minusYears(1)
-        }
+        val from = listOfNotNull(
+            LocalDate.now().minusYears(1),
+            plan?.startDate?.minusDays(1),
+        ).min()
 
         return runCatching {
             val incoming = health.readWeights(from, LocalDate.now())

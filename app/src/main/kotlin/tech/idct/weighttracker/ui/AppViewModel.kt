@@ -10,12 +10,14 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -42,6 +44,7 @@ import tech.idct.weighttracker.work.DailySyncWorker
 import tech.idct.weighttracker.work.Reminder
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 
 /** Overlays: sheets, dialogs and the notification preview. */
 sealed interface Overlay {
@@ -106,19 +109,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val auth = SupabaseAuth(app, supabase)
     val backup = BackupService(app, supabase, auth, repo)
 
+    /**
+     * Today's date, re-emitted just after each local midnight. Every derived number
+     * — the plan's target for today, ahead/behind, the day index the chart draws
+     * "today" at — depends on it, and it used to be read only when the database
+     * emitted, so a screen left open across midnight kept yesterday's plan line
+     * until something else changed. Re-subscription on resume restarts the flow,
+     * so a return from the background also picks up the current day.
+     */
+    private val today: Flow<LocalDate> = flow {
+        while (true) {
+            val now = LocalDate.now()
+            emit(now)
+            val midnight = now.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            delay((midnight - System.currentTimeMillis()).coerceAtLeast(1_000L) + 1_000L)
+        }
+    }
+
     val ui: StateFlow<AppUiState> = combine(
         repo.observeEntries(),
         repo.observePlan(),
         repo.observeSettings(),
         repo.observeUnlocked(),
-    ) { entries, plan, settings, unlocked ->
+        today,
+    ) { entries, plan, settings, unlocked, today ->
         AppUiState(
             loading = false,
             entries = entries,
             plan = plan,
             settings = settings,
             unlocked = unlocked,
-            today = LocalDate.now(),
+            today = today,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AppUiState())
 

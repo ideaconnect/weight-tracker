@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
+import tech.idct.weighttracker.domain.ChartScale
 import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanStats
 import tech.idct.weighttracker.domain.Units
@@ -18,7 +19,9 @@ import kotlin.math.min
 
 /**
  * Glance lays out with RemoteViews, which cannot draw arbitrary paths, so the ring
- * and the sparklines are painted into bitmaps here and shown as images.
+ * and the sparklines are painted into bitmaps here and shown as images. The in-app
+ * widget previews draw through the same functions, so what the gallery promises is
+ * what the launcher shows.
  */
 private val axisDate: DateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd")
 
@@ -51,17 +54,18 @@ object WidgetPainter {
     }
 
     /**
-     * The 4x2 and 4x4 sparklines: actual weight over the plan line and the
-     * tolerance band, in the same layer order as the full chart.
-     */
-    /**
      * Gridlines and labels for the bigger widgets. A bare sparkline on a 4x4 tile is a
      * squiggle with no scale to read it against; §6 gives the full chart weight labels
      * in a left gutter and dates underneath, and at this size the widget can afford
-     * the same.
+     * the same. [maxTicks] and [maxDates] are budgets: the labels land on round
+     * weights and calendar boundaries, as many as fit.
      */
-    class Axes(val unit: WeightUnit, val textSp: Float, val ticks: Int = 4, val dates: Int = 3)
+    class Axes(val unit: WeightUnit, val textSp: Float, val maxTicks: Int = 4, val maxDates: Int = 3)
 
+    /**
+     * The 4x2 and 4x4 sparklines: actual weight over the plan line and the
+     * tolerance band, in the same layer order as the full chart.
+     */
     fun sparkline(
         widthPx: Int,
         heightPx: Int,
@@ -120,24 +124,26 @@ object WidgetPainter {
                 color = palette.muted
                 textSize = labelPx
                 typeface = Typeface.MONOSPACE
+                textAlign = Paint.Align.RIGHT
             }
-            val step = (hi - lo) / (axes.ticks - 1)
-            for (i in 0 until axes.ticks) {
-                val v = lo + step * i
-                val gy = y(v)
+            // Round weights in the display unit, exactly as the full chart labels them.
+            ChartScale.niceTicks(
+                Units.toDisplay(lo, axes.unit),
+                Units.toDisplay(hi, axes.unit),
+                axes.maxTicks,
+            ).forEach { tick ->
+                val gy = y(Units.fromDisplay(tick, axes.unit))
                 canvas.drawLine(plotL, gy, plotR, gy, gridPaint)
-                val label = Units.format(v, axes.unit)
-                labelPaint.textAlign = Paint.Align.RIGHT
-                canvas.drawLine(plotL, gy, plotR, gy, gridPaint)
-                canvas.drawText(label, plotL - 3f * density, gy + labelPx * 0.36f, labelPaint)
+                canvas.drawText(ChartScale.label(tick), plotL - 3f * density, gy + labelPx * 0.36f, labelPaint)
             }
+            // Calendar-aligned dates, kept inside the bitmap at either end.
             labelPaint.textAlign = Paint.Align.CENTER
-            for (i in 0 until axes.dates) {
-                val day = xMax * (i + 0.5f) / axes.dates
-                val date = plan.startDate.plusDays(day.toLong())
+            val half = labelPaint.measureText("00-00") / 2f
+            ChartScale.dateTicks(plan.startDate, 0f, xMax, axes.maxDates).forEach { date ->
+                val day = PlanMath.dayIndex(plan.startDate, date).toFloat()
                 canvas.drawText(
                     date.format(axisDate),
-                    x(day),
+                    x(day).coerceIn(half, widthPx - half),
                     heightPx - labelPx * 0.5f,
                     labelPaint,
                 )

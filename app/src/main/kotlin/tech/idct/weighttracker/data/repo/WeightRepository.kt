@@ -59,7 +59,8 @@ class WeightRepository(private val db: AppDatabase) {
      * §3 pins the plan's start "when the plan is created". The pin settles at the end
      * of that day: a weight logged on the start date IS the starting weight, so the
      * plan line follows it. From the next day on the start is frozen, and the schedule
-     * is measured against it.
+     * is measured against it. A Health Connect record for that day counts the same
+     * way, as long as it is the record that ends up stored (see the merge rules).
      */
     private suspend fun repinPlanStartIfToday(date: LocalDate, kg: Float) {
         val today = LocalDate.now()
@@ -111,6 +112,9 @@ class WeightRepository(private val db: AppDatabase) {
             }
         }
         if (toWrite.isNotEmpty()) db.entries().upsertAll(toWrite)
+        toWrite.lastOrNull { it.date == LocalDate.now().toEpochDay() }?.let {
+            repinPlanStartIfToday(LocalDate.ofEpochDay(it.date), it.kg)
+        }
         return toWrite.size
     }
 

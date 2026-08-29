@@ -122,11 +122,14 @@ object PlanMath {
      * With no deadline the plan line is flat at the target, so the chart can still
      * draw a goal without implying a schedule.
      */
-    fun planKgAt(plan: Plan, day: Int): Float {
+    fun planKgAt(plan: Plan, day: Int): Float = planKgAt(plan, day.toFloat())
+
+    /** The same line at a fractional day, for drawing it between the gridlines. */
+    fun planKgAt(plan: Plan, day: Float): Float {
         if (plan.mode == PlanMode.NO_DEADLINE) return plan.targetKg
         val span = spanDays(plan)
         if (span <= 0) return plan.targetKg
-        val t = min(1f, max(0f, day.toFloat() / span))
+        val t = min(1f, max(0f, day / span))
         return plan.startKg + (plan.targetKg - plan.startKg) * t
     }
 
@@ -134,11 +137,18 @@ object PlanMath {
      * §13: the trend needs at least two entries and a trend in the right direction,
      * otherwise the projection and its line are hidden rather than showing an
      * absurd date. Returned in the plan's sign convention — positive is progress.
+     *
+     * Only entries from [since] onward count — the plan's start date, when the
+     * caller has a plan. "At current pace" is the pace since the plan began; the
+     * §5 worked example measures exactly that. Taken over the whole history, a
+     * year of pre-plan gain either hid the projection (wrong direction) or diluted
+     * two months of steady loss into a finish date years out.
      */
-    fun trendPerDay(entries: List<WeightEntry>, direction: Float): Float {
-        if (entries.size < 2) return 0f
-        val first = entries.first()
-        val last = entries.last()
+    fun trendPerDay(entries: List<WeightEntry>, direction: Float, since: LocalDate? = null): Float {
+        val counted = if (since == null) entries else entries.filter { !it.date.isBefore(since) }
+        if (counted.size < 2) return 0f
+        val first = counted.first()
+        val last = counted.last()
         val days = ChronoUnit.DAYS.between(first.date, last.date).toInt()
         if (days <= 0) return 0f
         return (first.kg - last.kg) * direction / days
@@ -180,7 +190,7 @@ object PlanMath {
         val planRatePerDay = if (dated && span > 0) (plan.startKg - plan.targetKg) * direction / span else 0f
         val neededPerDay = if (dated && !targetDatePassed) leftKg / daysLeft else 0f
 
-        val trend = trendPerDay(entries, direction)
+        val trend = trendPerDay(entries, direction, since = plan.startDate)
         val projected = if (trend > 0.001f && leftKg > 0f) {
             val daysToGo = (leftKg / trend).roundToLong()
             // A projection more than ten years out is not information, it is noise.

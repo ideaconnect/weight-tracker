@@ -78,6 +78,35 @@ class WidgetsTest : E2eTestBase() {
         assertTrue("bar widget must be bound", after.contains("BarWidgetReceiver"))
     }
 
+    /**
+     * The two widgets that carry a chart, on an otherwise empty launcher so both
+     * land on the first page: their sparklines must show a readable scale — round
+     * weights down the side, calendar dates underneath — like the app's own chart.
+     */
+    @Test
+    fun chartWidgets() {
+        resetApp(seed = true, unlock = true)
+        device.executeShellCommand("pm clear com.google.android.apps.nexuslauncher")
+        device.pressHome()
+        SystemClock.sleep(1_500)
+
+        launchApp()
+        openGallery()
+        screenshot("gallery-chart-previews")
+        placeWidget("CHART")
+        launchApp()
+        openGallery()
+        placeWidget("BIG")
+
+        device.pressHome()
+        SystemClock.sleep(2_500)
+        screenshot("launcher-chart-widgets")
+
+        val bound = device.executeShellCommand("dumpsys appwidget")
+        assertTrue("chart widget must be bound", bound.contains("ChartWidgetReceiver"))
+        assertTrue("big widget must be bound", bound.contains("BigWidgetReceiver"))
+    }
+
     private fun openGallery() {
         tapTab("Settings")
         tap("Widgets unlocked")

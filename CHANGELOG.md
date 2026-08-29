@@ -144,6 +144,45 @@ changed behaviour:
   and snooze, and the deep link; three unit-test files pin the body wording,
   the parser and the scheduling decision.
 
+### The tracking algorithm and the charts, reviewed
+
+- **Widgets move on to the new day.** Every derived number hangs off today's
+  date — the plan asks for less each morning — yet nothing refreshed a widget at
+  midnight, so a placed widget kept "0.4 kg ahead" in green for as long as the
+  app stayed closed. An inexact, non-waking alarm a minute past local midnight
+  now redraws them and any reminder still in the shade; a clock or time-zone
+  change does the same. In the app, "today" is its own flow that re-emits after
+  midnight, so a screen left open overnight no longer keeps yesterday's target.
+- **"At current pace" is the pace since the plan began.** The trend was fitted
+  through the whole history, so a year of pre-plan gain either hid the
+  projection or diluted two months of loss into a finish date years away. The
+  §5 worked example measures the plan period, and so does the code now.
+- A Health Connect record for the plan's start day re-pins the start weight the
+  way a manual entry on that day does.
+- **Every Health Connect sync reads a full year** (further back still when the
+  plan is older). After the first sync the window used to be a fortnight, so
+  a record that arrived late or was corrected in another app more than two
+  weeks back never landed; and the first sync with a plan in place started at
+  the plan rather than importing the history a scale already held.
+- **The chart has a real scale.** Weight gridlines sit on round numbers in the
+  display unit (74, 76, 78 … or 170, 175, 180 lb) and the dates underneath fall
+  on calendar boundaries — days, Mondays, month starts — chosen to fit the
+  width; the old labels were whatever value a quarter of the range happened to
+  be. Labels before the plan's start are real dates rather than the start date
+  repeated.
+- **Pinch zooms about the fingers, and two fingers pan.** Zoom was anchored to
+  today and there was no way to reach earlier data once zoomed in. The window
+  is bounded by the plan and the history, the range chips reset it, and the
+  hint says so. The data layers are clipped to the plot, which they used to
+  overrun into the gutter when zoomed; readings get their own dots once the
+  window is narrow enough to tell them apart; the scrubber snaps only to
+  readings in view; the plan line continues flat at the target past the target
+  date, as the maths treats it. The chart describes its visible date range for
+  accessibility, and the E2E scenario reads the gestures back from it.
+- **Widget sparklines share the chart's scale**, with the same round weights and
+  calendar dates, and the in-app previews are painted by the widget painter
+  itself rather than by a Compose copy of it that had drifted.
+
 ### Known gaps
 
 - Play Billing and AdMob still need IDs from a real account before they do

@@ -503,8 +503,8 @@ class ChartWidget : BaseWeightWidget() {
                             axes = WidgetPainter.Axes(
                                 data.unit,
                                 textSp = c.text(8.5f),
-                                ticks = 3,
-                                dates = 3,
+                                maxTicks = 3,
+                                maxDates = 3,
                             ),
                         )
                     ),
@@ -532,7 +532,7 @@ class ChartWidget : BaseWeightWidget() {
                             palette = palette,
                             density = density,
                             axes = if (chartW >= 150f && chartH >= 60f) {
-                                WidgetPainter.Axes(data.unit, textSp = c.text(8.5f), ticks = 3, dates = 2)
+                                WidgetPainter.Axes(data.unit, textSp = c.text(8.5f), maxTicks = 3, maxDates = 2)
                             } else null,
                         )
                     ),

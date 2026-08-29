@@ -251,6 +251,41 @@ class PlanMathTest {
         assertNull(PlanMath.stats(samplePlan, wrongWay, today).projectedFinish)
     }
 
+    @Test
+    fun `the trend is the pace since the plan began, not the whole history`() {
+        // A year of slow gain before the plan, then the worked example's loss.
+        val prehistory = (1..12).map {
+            WeightEntry(start.minusMonths(13L - it), 78f + it * 0.35f, EntrySource.MANUAL)
+        }
+        val withHistory = prehistory + sampleEntries
+        val stats = PlanMath.stats(samplePlan, withHistory, today)
+        assertEquals(0.0561f, stats.trendPerDay, 0.0005f)
+        assertEquals(LocalDate.of(2026, 11, 10), stats.projectedFinish)
+
+        // Without the plan boundary the same history reads as a gain: no projection.
+        assertTrue(PlanMath.trendPerDay(withHistory, 1f) < 0f)
+    }
+
+    @Test
+    fun `one entry since the plan began is not yet a trend`() {
+        val entries = listOf(
+            WeightEntry(start.minusDays(20), 84.0f, EntrySource.MANUAL),
+            WeightEntry(start.minusDays(10), 83.0f, EntrySource.MANUAL),
+            WeightEntry(today, 79.2f, EntrySource.MANUAL),
+        )
+        assertNull(PlanMath.stats(samplePlan, entries, today).projectedFinish)
+    }
+
+    @Test
+    fun `the plan line is continuous between whole days`() {
+        val atDay = PlanMath.planKgAt(samplePlan, 57)
+        val between = PlanMath.planKgAt(samplePlan, 57.5f)
+        val next = PlanMath.planKgAt(samplePlan, 58)
+        assertTrue(between < atDay && between > next)
+        assertEquals(75.0f, PlanMath.planKgAt(samplePlan, 152.5f), 0.001f)
+        assertEquals(82.4f, PlanMath.planKgAt(samplePlan, -1.5f), 0.001f)
+    }
+
     // §3: "pinned when the plan is created" ---------------------------------
 
     @Test

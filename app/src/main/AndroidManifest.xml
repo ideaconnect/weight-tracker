@@ -157,6 +157,12 @@
             android:name=".work.ReminderReceiver"
             android:exported="false" />
 
+        <!-- The inexact alarm a minute past midnight that moves the widgets on to
+             the new day; armed by the app itself, so nothing outside needs to reach it. -->
+        <receiver
+            android:name=".work.DayChangeReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".work.BootReceiver"
             android:exported="true">
@@ -164,6 +170,8 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <!-- The clock was set by hand: "today" may have moved. -->
+                <action android:name="android.intent.action.TIME_SET" />
                 <!-- The user granted "Alarms & reminders": re-arm exact. -->
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
