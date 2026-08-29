@@ -62,6 +62,17 @@ tests drive. It should not be.
 - [ ] **Data Safety declaration**: email address collected; weight history and
       plan uploaded only when backup is on; both deletable; nothing shared with
       third parties. The AdMob banner's own disclosures apply too.
+- [x] **No `USE_EXACT_ALARM`.** Play grants it only to alarm-clock, timer and
+      calendar apps. The reminder uses `SCHEDULE_EXACT_ALARM` — user-revocable,
+      denied by default on Android 14+ — and degrades to "within the hour" with a
+      settings link when it is not granted. Do not add `USE_EXACT_ALARM` back.
+- [ ] **`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` needs a decision.** Section 2
+      asks for the exemption alongside background sync, and onboarding says so,
+      but Play's Device and Network Abuse policy allows the prompt only where the
+      app's core function is otherwise broken. A once-a-day WorkManager sync
+      runs in Doze maintenance windows without it. Either drop the permission,
+      the prompt (`requestBatteryExemption` in `AppNav.kt`) and the onboarding
+      row together, or be ready to justify it in review.
 
 ## The build
 

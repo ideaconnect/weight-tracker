@@ -46,6 +46,8 @@ import tech.idct.weighttracker.ui.theme.WtTheme
 fun SettingsScreen(
     state: AppUiState,
     health: HealthState,
+    /** The reminder is on but Android will not show it (notifications blocked). */
+    reminderBlocked: Boolean = false,
     onUnit: (WeightUnit) -> Unit,
     onTheme: (ThemeChoice) -> Unit,
     onHealthConnect: () -> Unit,
@@ -165,7 +167,11 @@ fun SettingsScreen(
                         modifier = Modifier.weight(1f),
                     )
                     Text(
-                        if (settings.reminderEnabled) settings.reminderTime.format(Format.clock) else "Off",
+                        when {
+                            !settings.reminderEnabled -> "Off"
+                            reminderBlocked -> "${settings.reminderTime.format(Format.clock)} · blocked"
+                            else -> settings.reminderTime.format(Format.clock)
+                        },
                         style = TextStyle(fontFamily = RobotoMono, fontSize = 13.sp),
                         color = colors.muted,
                     )

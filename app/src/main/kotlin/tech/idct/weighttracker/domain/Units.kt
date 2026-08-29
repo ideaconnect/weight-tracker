@@ -40,4 +40,42 @@ object Units {
         val kg = fromDisplay(displayValue, unit)
         return kg > 20f && kg < 400f
     }
+
+    /** The same bounds in words, in the display unit: "between 20 and 400 kg". */
+    fun plausibleRangeLabel(unit: WeightUnit): String =
+        "between ${format(20f, unit, 0)} and ${format(400f, unit, 0)} ${unit.label}"
+
+    /**
+     * A weight typed by hand — most often into the notification's inline field,
+     * where there is no keypad to keep the input honest. Strict on purpose: the
+     * old digits-only filter turned "7٫9" into 79 and "8 0.5" into 80.5. Digits of
+     * any script are accepted (Character.digit normalises them), exactly one
+     * decimal separator — '.', ',' or the Arabic '٫' — and an optional trailing
+     * unit word. Anything else is null.
+     */
+    fun parseDisplayWeight(raw: String): Float? {
+        var text = raw.trim()
+        for (suffix in listOf("kgs", "kg", "lbs", "lb")) {
+            if (text.endsWith(suffix, ignoreCase = true)) {
+                text = text.dropLast(suffix.length).trim()
+                break
+            }
+        }
+        if (text.isEmpty()) return null
+        val normalised = StringBuilder()
+        var separators = 0
+        for (c in text) {
+            val digit = Character.digit(c, 10)
+            when {
+                digit >= 0 -> normalised.append('0' + digit)
+                c == '.' || c == ',' || c == '٫' -> {
+                    separators++
+                    normalised.append('.')
+                }
+                else -> return null
+            }
+        }
+        if (separators > 1 || normalised.none { it.isDigit() }) return null
+        return normalised.toString().toFloatOrNull()
+    }
 }

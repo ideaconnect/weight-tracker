@@ -12,6 +12,7 @@ import tech.idct.weighttracker.domain.PlanMode
 import tech.idct.weighttracker.domain.Units
 import tech.idct.weighttracker.domain.WeightEntry
 import tech.idct.weighttracker.widget.WidgetUpdater
+import tech.idct.weighttracker.work.Reminder
 import java.time.LocalDate
 import kotlin.math.sin
 
@@ -21,8 +22,21 @@ import kotlin.math.sin
  */
 object SeedData {
 
-    /** The worked example from section 5: 82.4 kg on 2026-07-01 → 75.0 by 2026-11-30. */
-    suspend fun seed(app: Context, behind: Boolean = false, unlock: Boolean = false) {
+    /**
+     * The worked example from section 5: 82.4 kg on 2026-07-01 → 75.0 by 2026-11-30.
+     *
+     * Seeding wipes settings (§13), which switches the reminder off; [reminder]
+     * turns it back on and arms the alarm, so the README's SHOW_REMINDER broadcast
+     * has something to post.
+     */
+    suspend fun seed(
+        app: Context,
+        behind: Boolean = false,
+        unlock: Boolean = false,
+        reminder: Boolean = false,
+        /** Minutes past midnight for the reminder; null keeps the default 08:00. */
+        reminderMinute: Int? = null,
+    ) {
         val repo = WeightRepository.get(app)
         repo.deleteAllData()
 
@@ -74,13 +88,25 @@ object SeedData {
         repo.mergeHealthConnectEntries(entries.filter { it.source == EntrySource.HEALTH_CONNECT })
 
         if (unlock) repo.setUnlocked(true)
-        repo.updateSettings { it.copy(onboardingComplete = true) }
+        repo.updateSettings {
+            it.copy(
+                onboardingComplete = true,
+                reminderEnabled = reminder,
+                reminderTime = reminderMinute?.let { m -> java.time.LocalTime.ofSecondOfDay(m * 60L) } ?: it.reminderTime,
+            )
+        }
+        Reminder.rescheduleNow(app)
         WidgetUpdater.updateAll(app)
-        Log.i("DebugSeed", "seeded ${entries.size} entries, behind=$behind unlock=$unlock")
+        Log.i(
+            "DebugSeed",
+            "seeded ${entries.size} entries, behind=$behind unlock=$unlock reminder=$reminder minute=$reminderMinute",
+        )
     }
 
     suspend fun clear(app: Context) {
         WeightRepository.get(app).deleteAllData()
+        // The settings went with the data, so the alarm and any posted reminder go too.
+        Reminder.rescheduleNow(app)
         WidgetUpdater.updateAll(app)
         Log.i("DebugSeed", "cleared")
     }

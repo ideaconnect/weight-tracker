@@ -122,7 +122,8 @@ fun BottomSheetScaffold(
 fun LogSheet(
     unit: WeightUnit,
     lastKnownKg: Float?,
-    yesterdayKg: Float?,
+    /** [Format.lastWeighIn]: "Yesterday you were …", or the ISO date when older. */
+    lastWeighIn: String?,
     today: LocalDate,
     onSave: (Float) -> Unit,
 ) {
@@ -138,9 +139,7 @@ fun LogSheet(
         typed
     }
     val hint = when {
-        typed.isEmpty() -> yesterdayKg
-            ?.let { "Yesterday you were ${Units.formatWithUnit(it, unit)}" }
-            ?: "Enter today's weight in ${unit.label}"
+        typed.isEmpty() -> lastWeighIn ?: "Enter today's weight in ${unit.label}"
 
         valid -> "Saves to today, ${today.format(Format.isoDate)}"
         else -> "Enter a plausible weight"

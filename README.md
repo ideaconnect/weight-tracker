@@ -132,8 +132,21 @@ adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez clear 
 # has to fill them back in
 adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez hcwrite true
 
-# Fire the daily reminder without waiting for the alarm
+# Seed with the daily reminder switched on. Seeding and clearing wipe the
+# settings (section 13), which turns the reminder off, and a reminder that is
+# off posts nothing.
+adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez reminder true
+# ...at a chosen time, in minutes past midnight (1260 = 21:00)
+adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez reminder true --ei minute 1260
+
+# Fire the daily reminder without waiting for the alarm. On Android 13+ the app
+# also needs the notification permission:
+#   adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS
 adb shell am broadcast -a tech.idct.weighttracker.SHOW_REMINDER \
+  -n $PKG/tech.idct.weighttracker.work.ReminderReceiver
+
+# The snoozed re-post, an hour early
+adb shell am broadcast -a tech.idct.weighttracker.SHOW_SNOOZED_REMINDER \
   -n $PKG/tech.idct.weighttracker.work.ReminderReceiver
 ```
 
@@ -142,10 +155,12 @@ the specification's sample numbers (79.2 kg today, or 80.3 behind).
 
 ## End-to-end tests
 
-Twenty-three scenarios drive the real UI on an emulator against the real Supabase
+Twenty-six scenarios drive the real UI on an emulator against the real Supabase
 project — accounts (sign-up with the emailed code, login, password reset and
 change, email change, deletion), the backup round trip, Health Connect in both
 directions, manual logging, widget placement (in both status colours), deleting all data,
+the daily reminder (its screen and preview, the notification with its inline
+reply and snooze, and the tap that opens the log sheet),
 and the plan verdicts including the trophy screen — plus the paths people hit by
 accident: a wrong password, a wrong code, a resend, and signing up with an
 address that already has an account. Each scenario captures screenshots as it

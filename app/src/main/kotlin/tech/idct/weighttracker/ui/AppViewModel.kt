@@ -269,9 +269,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val settings = repo.settings()
             val kg = Units.fromDisplay(displayValue, settings.unit)
             repo.saveManualEntry(date, kg)
-            // Optional write-back, only if the user granted it.
-            if (settings.healthConnectEnabled) health.writeWeight(date, Units.roundKg(kg))
+            // Section 4: the optional write-back, shared with the notification path.
+            syncService.writeBack(date, kg)
             WidgetUpdater.updateAll(getApplication())
+            // A reminder still in the shade would go on asking for the weigh-in that
+            // just happened, with the numbers from before it.
+            if (date == LocalDate.now()) Reminder.dismiss(getApplication())
             dismissOverlay()
             showToast(
                 "Logged ${Units.format(Units.roundKg(kg), settings.unit)} ${settings.unit.label} · widgets updated"
@@ -283,6 +286,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.updateEntry(date, kg)
             WidgetUpdater.updateAll(getApplication())
+            if (date == LocalDate.now()) Reminder.dismiss(getApplication())
             dismissOverlay()
             showToast("Entry saved")
         }
@@ -292,6 +296,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.deleteEntry(date)
             WidgetUpdater.updateAll(getApplication())
+            // A card saying "Already logged today" would be wrong now, and it has
+            // no Log field; rebuild it.
+            if (date == LocalDate.now()) Reminder.refreshIfShowing(getApplication())
             dismissOverlay()
             showToast("Entry removed")
         }
@@ -333,13 +340,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             repo.savePlan(plan)
             WidgetUpdater.updateAll(getApplication())
+            Reminder.refreshIfShowing(getApplication())
             showToast("Plan saved · chart and widgets updated")
         }
     }
 
     // ---- settings ----------------------------------------------------------
 
-    fun setUnit(unit: WeightUnit) = mutateSettings({ it.copy(unit = unit) })
+    // A reminder already in the shade is rebuilt so its numbers, and its inline
+    // field, follow the setting rather than waiting for tomorrow's.
+    fun setUnit(unit: WeightUnit) = mutateSettings({ it.copy(unit = unit) }) {
+        Reminder.refreshIfShowing(getApplication())
+    }
 
     fun setTheme(theme: ThemeChoice) = mutateSettings({ it.copy(theme = theme) }) {
         ThemePrefs.write(getApplication(), theme)
@@ -357,7 +369,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setQuickLog(enabled: Boolean) = mutateSettings({ it.copy(quickLogFromNotification = enabled) })
+    fun setQuickLog(enabled: Boolean) = mutateSettings({ it.copy(quickLogFromNotification = enabled) }) {
+        Reminder.refreshIfShowing(getApplication())
+    }
 
     fun setHealthConnectEnabled(enabled: Boolean) {
         mutateSettings({ it.copy(healthConnectEnabled = enabled) }) {
@@ -622,6 +636,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             auth.clearSession()
             backup.forgetLocalState()
             repo.deleteAllData()
+            // The theme went back to SYSTEM with the settings; the launch-window
+            // mirror has to follow, or the next cold start paints the old colour.
+            ThemePrefs.write(getApplication(), ThemeChoice.SYSTEM)
             DailySyncWorker.cancel(getApplication())
             Reminder.reschedule(getApplication())
             WidgetUpdater.updateAll(getApplication())

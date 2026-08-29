@@ -87,6 +87,63 @@ the first one to be recorded here; the rest are noted for the same reason.
   project's working SMTP settings with a dead one; the values now come from
   `secrets/smtp.env` and `e2e/config-push.sh` refuses to push without them.
 
+### The daily reminder, reviewed
+
+Thirty-eight findings from an adversarial review of section 9, of which these
+changed behaviour:
+
+- **`USE_EXACT_ALARM` is gone.** Google Play allows it only to alarm-clock,
+  timer and calendar apps; a weight tracker declaring it is refused. The app
+  keeps `SCHEDULE_EXACT_ALARM`, which Android 14+ denies by default: the
+  reminder then arrives within the hour after the chosen time, the Reminder
+  screen says so and offers the "Alarms & reminders" toggle, and the alarm is
+  re-armed exact the moment the grant arrives.
+- **Snooze works.** It shared the daily alarm's PendingIntent, so any process
+  start — a widget refresh, the sync job, opening the app — replaced a pending
+  snooze with tomorrow's alarm. It has its own now.
+- **The daily chain is armed before the broadcast finishes**, and before the
+  notification is posted. It used to be launched fire-and-forget after
+  `PendingResult.finish()`, from a scope whose first exception would have killed
+  the process from the background — with no alarm for tomorrow.
+- **A missed reminder is delivered late rather than dropped.** An inexact alarm
+  still pending at 08:20, or one the phone slept through, was moved to tomorrow
+  by the next process start. Within two hours of its time it now fires at once —
+  across midnight too, so a 23:30 reminder missed by an hour still arrives.
+- **One `MainActivity`.** A notification tap while the app was in the background
+  stacked a second instance — a second view model, billing client and session —
+  on top of the first; `onNewIntent` was dead code. The activity is `singleTop`
+  and the intent says so. The route is also no longer replayed on every
+  recreation, so the log sheet a reminder opened does not come back after a
+  dark-mode flip or a return from Recents.
+- **"On" means on.** With notifications blocked in system settings the switch
+  stayed on for good while every morning's alarm woke the process to post
+  nothing. The Reminder screen and the Settings row now say "blocked" and open
+  the settings page.
+- **The body is true today.** "Yesterday you were …" was said of an entry days
+  old; "0.0 kg ahead" was printed before the schedule had begun; an entry
+  already logged today was ignored. The wording comes from `Format.reminderBody`
+  now, shared with the preview and pinned by unit tests, and once today is
+  logged the inline field is dropped so it cannot replace the day by accident.
+- **The inline reply is honest both ways.** A refused number says so and keeps
+  the field; a saved one is confirmed in place ("Logged 80.1 kg"), which is also
+  what stops the shade's sending spinner. The parser accepts a comma, an Arabic
+  separator and any digit script, and refuses anything else instead of
+  repairing it ("7٫9" used to become 79).
+- **An inline log is a full log**: it is written back to Health Connect like the
+  sheet's, and uploaded to the backup by a one-off job rather than at the next
+  app open.
+- Logging in the app dismisses a reminder still in the shade; changing the unit
+  or the quick-log switch rebuilds it; the background sync rebuilds it with the
+  merged numbers; the reminder syncs Health Connect, briefly, before it posts.
+- Also: the switch component has switch semantics for TalkBack and tests; the
+  big time no longer mirrors under RTL locales and its quick options wrap at
+  large font sizes; `updateSettings` is transactional; the theme mirror follows
+  Delete-all-data; the boot receiver no longer re-enqueues the sync job against
+  the setting.
+- Three E2E scenarios cover the screen, the notification with its inline reply
+  and snooze, and the deep link; three unit-test files pin the body wording,
+  the parser and the scheduling decision.
+
 ### Known gaps
 
 - Play Billing and AdMob still need IDs from a real account before they do

@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -38,6 +40,11 @@ class BackupService(
     private val auth: SupabaseAuth,
     private val repo: WeightRepository,
 ) {
+
+    private companion object {
+        /** One upload, restore or clear at a time, across every instance in the process. */
+        val operationLock = Mutex()
+    }
 
     @Serializable
     private data class BackupEntry(
@@ -112,8 +119,15 @@ class BackupService(
     /**
      * [force] skips the conflict check, for when the user has been shown what is
      * up there and chosen to replace it.
+     *
+     * One backup operation at a time per process: the view model's watcher and
+     * the worker that runs after an inline log each hold their own instance, and
+     * two uploads racing on the ownedAt handshake could read the other's
+     * updated_at as a foreign device's and raise a conflict over nothing.
      */
-    suspend fun backupNow(force: Boolean = false): Result {
+    suspend fun backupNow(force: Boolean = false): Result = operationLock.withLock { upload(force) }
+
+    private suspend fun upload(force: Boolean): Result {
         // Read the database before suspending on anything else. Fetching a token can
         // take a full network round trip, and Delete-all-data running in that window
         // used to turn this into an upload of the empty database.
@@ -220,7 +234,9 @@ class BackupService(
     // ---- download ----------------------------------------------------------
 
     /** Replaces everything local with the snapshot. Only ever user-initiated. */
-    suspend fun restore(): Result {
+    suspend fun restore(): Result = operationLock.withLock { restoreLocked() }
+
+    private suspend fun restoreLocked(): Result {
         val token = auth.accessToken() ?: return Result.Error("Sign in to restore")
         val r = client.call("/rest/v1/backups?select=payload,updated_at", token = token)
         if (!r.ok) {
@@ -295,7 +311,9 @@ class BackupService(
     }
 
     /** Deletes the row so the user can start from scratch. */
-    suspend fun clear(): Result {
+    suspend fun clear(): Result = operationLock.withLock { clearLocked() }
+
+    private suspend fun clearLocked(): Result {
         val token = auth.accessToken() ?: return Result.Error("Sign in first")
         val userId = auth.session.value?.userId ?: return Result.Error("Sign in first")
         val r = client.call("/rest/v1/backups?user_id=eq.$userId", token = token, method = "DELETE")

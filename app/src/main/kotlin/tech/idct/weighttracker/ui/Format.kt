@@ -1,8 +1,11 @@
 package tech.idct.weighttracker.ui
 
 import tech.idct.weighttracker.domain.AppSettings
+import tech.idct.weighttracker.domain.Plan
+import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanStats
 import tech.idct.weighttracker.domain.Units
+import tech.idct.weighttracker.domain.WeightEntry
 import tech.idct.weighttracker.domain.WeightUnit
 import java.time.Instant
 import java.time.LocalDate
@@ -109,6 +112,54 @@ object Format {
             "Health Connect · synced on open, $time"
         }
     }
+
+    /**
+     * Section 9: the reminder body carries real numbers — one sentence about the
+     * plan, one about the last weigh-in, and nothing that is not true today.
+     * "Ahead" only once the schedule has begun (before, it printed "0.0 kg ahead"
+     * for a number that measured nothing), "Yesterday" only when it was
+     * yesterday, and today's own entry when there already is one — in which case
+     * the notification also drops its inline Log field.
+     */
+    fun reminderBody(entries: List<WeightEntry>, plan: Plan?, unit: WeightUnit, today: LocalDate): String {
+        if (entries.isEmpty()) return "Log today's weight to start the chart."
+        val parts = mutableListOf<String>()
+        val loggedToday = entries.lastOrNull { it.date == today }
+        if (loggedToday != null) parts += "Already logged today: ${Units.formatWithUnit(loggedToday.kg, unit)}."
+        if (plan != null) {
+            val stats = PlanMath.stats(plan, entries, today)
+            parts += when {
+                stats.reached -> "You've reached your goal of ${Units.formatWithUnit(stats.targetKg, unit)}."
+                !stats.dated -> "${Units.formatWithUnit(stats.leftKg, unit)} to your goal."
+                !stats.scheduleStarted -> "Your plan starts from today."
+                stats.targetDatePassed ->
+                    "The target date has passed — ${Units.formatWithUnit(stats.leftKg, unit)} to your goal."
+                stats.aheadKg >= 0 -> "You're ${Units.formatWithUnit(stats.aheadKg, unit)} ahead of plan."
+                else -> "You're ${Units.formatWithUnit(-stats.aheadKg, unit)} behind plan."
+            }
+        }
+        if (loggedToday == null) lastWeighIn(entries, today, unit)?.let { parts += "$it." }
+        return parts.joinToString(" ")
+    }
+
+    /**
+     * "Yesterday you were 79.4 kg" — or, when the last entry is older than that,
+     * its ISO date. The reminder and the log sheet both say this, from here, so
+     * neither can call a week-old entry yesterday's again.
+     */
+    fun lastWeighIn(entries: List<WeightEntry>, today: LocalDate, unit: WeightUnit): String? {
+        val last = entries.lastOrNull { it.date < today } ?: return null
+        val weight = Units.formatWithUnit(last.kg, unit)
+        return if (last.date == today.minusDays(1)) {
+            "Yesterday you were $weight"
+        } else {
+            "Last logged $weight on ${last.date.format(isoDate)}"
+        }
+    }
+
+    /** Prepended to the reminder when an inline reply could not be saved. */
+    fun rejectedWeight(unit: WeightUnit): String =
+        "Not saved — enter a weight ${Units.plausibleRangeLabel(unit)}."
 
     /** The closing sentence on the Plan screen, comparing the user's pace to the plan's. */
     fun planNote(stats: PlanStats, unit: WeightUnit): String {

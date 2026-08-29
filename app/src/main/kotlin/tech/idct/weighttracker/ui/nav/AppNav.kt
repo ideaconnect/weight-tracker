@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -144,7 +145,20 @@ fun WeightTrackerApp(
         val activity = context as? ComponentActivity
         val navController = rememberNavController()
         val scope = rememberCoroutineScope()
-        var reminderPreviewBody by remember { mutableStateOf("") }
+
+        // Whether a reminder can actually reach the shade, re-checked every time the
+        // app comes back: notifications or exact alarms may have been blocked in
+        // system settings meanwhile, and the switch must not go on saying "On".
+        var notificationsBlocked by remember { mutableStateOf(false) }
+        var exactAlarmsDenied by remember { mutableStateOf(false) }
+        LifecycleResumeEffect(Unit) {
+            notificationsBlocked = !Reminder.canDeliver(context)
+            val exactAllowed = Reminder.canScheduleExact(context)
+            // Granted while we were away: re-arm so the alarm is exact from now on.
+            if (exactAllowed && exactAlarmsDenied) Reminder.reschedule(context)
+            exactAlarmsDenied = !exactAllowed
+            onPauseOrDispose { }
+        }
 
         val backStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = backStackEntry?.destination?.route ?: Routes.HOME
@@ -203,8 +217,11 @@ fun WeightTrackerApp(
         // A widget or notification tap can ask for a specific destination.
         LaunchedEffect(initialRoute) {
             when (initialRoute) {
+                // Only a real hop is marked: arriving on the route already showing
+                // (a reminder tapped while Home is up) would leave the mark behind to
+                // swallow the next genuine navigation's overlay clear.
                 tech.idct.weighttracker.MainActivity.ROUTE_PAYWALL -> {
-                    routeFromIntent = Routes.WIDGETS
+                    routeFromIntent = Routes.WIDGETS.takeIf { it != currentRoute }
                     navController.navigateSingle(Routes.WIDGETS)
                     viewModel.openOverlay(Overlay.Paywall)
                 }
@@ -213,7 +230,7 @@ fun WeightTrackerApp(
                     navController.navigateSingle(Routes.PLACEMENT)
 
                 tech.idct.weighttracker.MainActivity.ROUTE_LOG -> {
-                    routeFromIntent = Routes.HOME
+                    routeFromIntent = Routes.HOME.takeIf { it != currentRoute }
                     navController.navigateSingle(Routes.HOME)
                     viewModel.openOverlay(Overlay.LogSheet)
                 }
@@ -379,6 +396,7 @@ fun WeightTrackerApp(
                             SettingsScreen(
                                 state = state,
                                 health = healthState,
+                                reminderBlocked = state.settings.reminderEnabled && notificationsBlocked,
                                 onUnit = viewModel::setUnit,
                                 onTheme = viewModel::setTheme,
                                 onHealthConnect = { navController.navigateSingle(Routes.HEALTH_CONNECT) },
@@ -410,6 +428,8 @@ fun WeightTrackerApp(
                         composable(Routes.REMINDER) {
                             ReminderScreen(
                                 state = state,
+                                notificationsBlocked = notificationsBlocked,
+                                exactAlarmsDenied = exactAlarmsDenied,
                                 onBack = { navController.popBackStack() },
                                 onToggle = { enabled ->
                                     val needsPermission = enabled &&
@@ -432,12 +452,9 @@ fun WeightTrackerApp(
                                 },
                                 onTime = viewModel::setReminderTime,
                                 onQuickLog = viewModel::setQuickLog,
-                                onPreview = {
-                                    scope.launch {
-                                        reminderPreviewBody = Reminder.buildBody(context).first
-                                        viewModel.openOverlay(Overlay.NotificationPreview)
-                                    }
-                                },
+                                onPreview = { viewModel.openOverlay(Overlay.NotificationPreview) },
+                                onOpenNotificationSettings = { openNotificationSettings(context) },
+                                onAllowExactAlarms = { openExactAlarmSettings(context) },
                             )
                         }
 
@@ -495,7 +512,9 @@ fun WeightTrackerApp(
                 LogSheet(
                     unit = state.settings.unit,
                     lastKnownKg = state.currentKg,
-                    yesterdayKg = state.entries.lastOrNull { it.date < state.today }?.kg,
+                    lastWeighIn = tech.idct.weighttracker.ui.Format.lastWeighIn(
+                        state.entries, state.today, state.settings.unit,
+                    ),
                     today = state.today,
                     onSave = { viewModel.saveWeight(it) },
                 )
@@ -558,12 +577,17 @@ fun WeightTrackerApp(
             }
 
             if (overlay is Overlay.NotificationPreview) {
+                // The same words and the same actions the real notification would
+                // carry right now, from the same function.
+                val loggedToday = state.entries.any { it.date == state.today }
                 NotificationPreview(
                     title = Reminder.title(state.settings.reminderTime),
-                    body = reminderPreviewBody,
+                    body = tech.idct.weighttracker.ui.Format.reminderBody(
+                        state.entries, state.plan, state.settings.unit, state.today,
+                    ),
                     lastKnownKg = state.currentKg,
                     unit = state.settings.unit,
-                    quickLog = state.settings.quickLogFromNotification,
+                    quickLog = state.settings.quickLogFromNotification && !loggedToday,
                     onDismiss = viewModel::dismissOverlay,
                 )
             }
@@ -738,6 +762,19 @@ private fun openNotificationSettings(context: android.content.Context) {
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+}
+
+/** Android 12+: "Alarms & reminders" is a Settings toggle, not a runtime dialog. */
+private fun openExactAlarmSettings(context: android.content.Context) {
+    if (Build.VERSION.SDK_INT < 31) return
+    runCatching {
+        context.startActivity(
+            Intent(
+                Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                Uri.parse("package:${context.packageName}"),
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }
 }

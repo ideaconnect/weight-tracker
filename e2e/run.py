@@ -78,6 +78,12 @@ SCENARIOS = [
      "The same plan losing too slowly: the status colour turns amber and says behind."),
     ("finish-plan", "TrackingTest#finishPlan",
      "Logging the target weight earns the trophy screen, once."),
+    ("reminder-screen", "ReminderTest#reminderScreen",
+     "Switch the daily reminder on, pick 21:00 and preview it; the alarm is really armed."),
+    ("reminder-inline-log", "ReminderTest#postInlineLogAndSnooze",
+     "The reminder posts with real numbers; a bad inline reply is refused in words, a good one saves and confirms; Snooze arms its own alarm without touching the daily one."),
+    ("reminder-deep-link", "ReminderTest#notificationTapOpensTheLogSheetOnce",
+     "Tapping the reminder while the app is in the background opens the log sheet in the one existing activity."),
 ]
 
 

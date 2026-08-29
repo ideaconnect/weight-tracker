@@ -157,6 +157,11 @@ class SupabaseAuth(context: Context, private val client: SupabaseClient) {
 
     /** A valid access token, refreshed behind a mutex if it is about to expire. */
     suspend fun accessToken(): String? {
+        // Another instance in this process (the backup worker's) may have found the
+        // refresh token dead and cleared the stored session since this one loaded
+        // it; trusting the copy in memory would keep "backup on" alive on a session
+        // that is over.
+        if (_session.value != null && loadSession() == null) _session.value = null
         if (_session.value == null) return null
         refreshMutex.withLock {
             val expiresAt = prefs.getLong("expiresAt", 0L)

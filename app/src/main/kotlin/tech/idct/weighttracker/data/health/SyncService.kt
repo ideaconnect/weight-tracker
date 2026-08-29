@@ -3,6 +3,7 @@ package tech.idct.weighttracker.data.health
 import android.content.Context
 import android.util.Log
 import tech.idct.weighttracker.data.repo.WeightRepository
+import tech.idct.weighttracker.domain.Units
 import tech.idct.weighttracker.widget.WidgetUpdater
 import java.time.LocalDate
 
@@ -17,6 +18,20 @@ class SyncService(
 ) {
 
     data class Result(val ran: Boolean, val imported: Int, val reason: String? = null)
+
+    /**
+     * Section 4: the optional write-back of a manual entry, on whenever the write
+     * grant exists. Both ways of logging — the sheet and the notification's inline
+     * field — come through here, so they cannot diverge again. Fails quietly: the
+     * local database is the source of truth and already holds the entry.
+     */
+    suspend fun writeBack(date: LocalDate, kg: Float): Boolean = runCatching {
+        if (!repo.settings().healthConnectEnabled) return@runCatching false
+        health.writeWeight(date, Units.roundKg(kg))
+    }.getOrElse { error ->
+        Log.w("SyncService", "Health Connect write-back failed", error)
+        false
+    }
 
     suspend fun syncNow(): Result {
         val settings = repo.settings()

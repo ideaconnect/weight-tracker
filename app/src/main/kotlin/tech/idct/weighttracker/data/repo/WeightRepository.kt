@@ -129,9 +129,16 @@ class WeightRepository(private val db: AppDatabase) {
 
     suspend fun settings(): AppSettings = (db.settings().get() ?: SettingsRow()).toDomain()
 
+    /**
+     * Read-modify-write in one transaction. Two writers used to interleave — the
+     * sync's lastSyncAt landing a moment after the reminder switch was flipped
+     * wrote the old switch back over the new one.
+     */
     suspend fun updateSettings(transform: (AppSettings) -> AppSettings) {
-        val current = (db.settings().get() ?: SettingsRow()).toDomain()
-        db.settings().put(transform(current).toRow())
+        db.withTransaction {
+            val current = (db.settings().get() ?: SettingsRow()).toDomain()
+            db.settings().put(transform(current).toRow())
+        }
     }
 
     // ---- entitlement -------------------------------------------------------

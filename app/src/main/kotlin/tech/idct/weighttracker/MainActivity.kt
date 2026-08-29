@@ -50,7 +50,10 @@ class MainActivity : ComponentActivity() {
             },
         )
         super.onCreate(savedInstanceState)
-        pendingRoute = intent?.getStringExtra(EXTRA_ROUTE)
+        // The launch intent is sticky: a recreation — dark mode flipping, a font
+        // size change, a return from Recents after process death — arrives with the
+        // same intent, and the log sheet a reminder had opened hours ago came back.
+        if (savedInstanceState == null) pendingRoute = intent?.getStringExtra(EXTRA_ROUTE)
 
         setContent {
             WeightTrackerApp(

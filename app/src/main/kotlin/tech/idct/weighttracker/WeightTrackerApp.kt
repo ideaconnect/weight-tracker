@@ -1,6 +1,8 @@
 package tech.idct.weighttracker
 
 import android.app.Application
+import android.util.Log
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,8 +22,13 @@ class WeightTrackerApp : Application() {
         Ads.initialise(this)
 
         // Bring the scheduled work back in line with whatever the settings say, and
-        // refresh the widgets so a cold start never leaves them stale.
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        // refresh the widgets so a cold start never leaves them stale. Logged, not
+        // fatal: an unhandled exception here would kill a process that may have
+        // been started only to deliver the reminder.
+        val handler = CoroutineExceptionHandler { _, error ->
+            Log.w("WeightTrackerApp", "Startup reconciliation failed", error)
+        }
+        CoroutineScope(SupervisorJob() + Dispatchers.IO + handler).launch {
             val settings = WeightRepository.get(this@WeightTrackerApp).settings()
             ThemePrefs.write(this@WeightTrackerApp, settings.theme)
             if (settings.backgroundSyncEnabled) {

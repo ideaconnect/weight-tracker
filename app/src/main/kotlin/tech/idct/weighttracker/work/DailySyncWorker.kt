@@ -14,7 +14,9 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Section 4 rule 6: background sync, when granted, runs once a day and updates
- * widgets and the reminder body. Without it, widgets refresh on app open, on
+ * widgets and the reminder body — the latter by rebuilding a reminder that is
+ * already in the shade, and by being run again just before one is posted (see
+ * [Reminder.syncBeforePosting]). Without it, widgets refresh on app open, on
  * manual save and on plan change.
  */
 class DailySyncWorker(
@@ -33,6 +35,7 @@ class DailySyncWorker(
         val health = HealthConnectManager(applicationContext)
         SyncService(applicationContext, repo, health).syncNow()
         WidgetUpdater.updateAll(applicationContext)
+        Reminder.refreshIfShowing(applicationContext)
         return Result.success()
     }
 
@@ -49,15 +52,6 @@ class DailySyncWorker(
 
         fun cancel(context: Context) {
             WorkManager.getInstance(context).cancelUniqueWork(NAME)
-        }
-
-        /** Called on boot and on package replace, to match whatever the settings say. */
-        fun reschedule(context: Context) {
-            // enqueueUniquePeriodicWork survives reboot on its own; this only covers the
-            // case where the setting was turned on while the work was cancelled.
-            val request = PeriodicWorkRequestBuilder<DailySyncWorker>(1, TimeUnit.DAYS).build()
-            WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, request)
         }
     }
 }
