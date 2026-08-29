@@ -150,6 +150,10 @@ s, b = supa.auth("/token?grant_type=password", {"email": EMAIL2, "password": PW1
 check("deleted account cannot sign in", s in (400, 401), f"{s} {str(b)[:120]}")
 
 # --- the admin function is narrow ----------------------------------------------
+# The suite must survive the capture hook being retired.
+r = supa.admin("generate_otp", type="recovery", email=OTHER)
+check("codes can be minted without an inbox", len(r.get("email_otp") or "") == 6, str(r)[:160])
+
 r = supa.admin("sql", query="select 1")
 check("the arbitrary-SQL action is gone", r.get("_status") == 400, str(r)[:120])
 

@@ -3,6 +3,7 @@
     python e2e/run.py                # build, install, run everything
     python e2e/run.py --skip-build   # reuse the APKs already installed
     python e2e/run.py backup restore # just these scenarios
+    python e2e/run.py --generated-codes  # as if the mail-capture hook were off
 
 Every scenario is one instrumented test driving the real UI against the real
 Supabase project. Screenshots land in e2e/report/screenshots/<scenario>/ and
@@ -26,6 +27,9 @@ DEVICE_SHOTS = f"/storage/emulated/0/Android/data/{PKG}/files/e2e"
 # Every account this run creates carries it, so two runs never collide and no
 # scenario can read a verification code left behind by an earlier one.
 RUN_ID = str(int(time.time()) % 1_000_000)
+# --generated-codes runs as though the mail-capture hook did not exist, which is
+# how a project holding real users should be configured.
+CODE_SOURCE = "generate" if "--generated-codes" in sys.argv else "auto"
 
 SCENARIOS = [
     ("signup", "AccountTest#signup",
@@ -106,6 +110,7 @@ def run_scenario(name, target, description):
         "shell", "am", "instrument", "-w",
         "-e", "class", f"tech.idct.weighttracker.e2e.{target.replace('#', '#')}",
         "-e", "runId", RUN_ID,
+        "-e", "codeSource", CODE_SOURCE,
         "-e", "supabaseUrl", supa.URL,
         "-e", "adminSecret", supa.ADMIN_SECRET,
         RUNNER,

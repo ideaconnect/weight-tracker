@@ -73,6 +73,18 @@ the first one to be recorded here; the rest are noted for the same reason.
   lock-screen widgets, the backup conflict and the once-only trophy — and cleans
   up every account it creates even when a scenario fails.
 
+### Since SMTP was configured
+
+- The E2E suite no longer depends on the mail-capture hook. It still prefers the
+  captured code — that is the one the app's own send produced — but falls back to
+  asking GoTrue to mint the same OTP, which sends nothing. `--generated-codes`
+  runs the suite as though the hook did not exist, so the hook can be retired
+  without breaking anything.
+- `supabase/config.toml` no longer carries SMTP credentials. It held a
+  placeholder host, which meant any `config push` silently replaced the
+  project's working SMTP settings with a dead one; the values now come from
+  `secrets/smtp.env` and `e2e/config-push.sh` refuses to push without them.
+
 ### Known gaps
 
 - Play Billing and AdMob still need IDs from a real account before they do

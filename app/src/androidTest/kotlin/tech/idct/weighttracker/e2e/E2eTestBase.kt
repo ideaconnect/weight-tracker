@@ -77,6 +77,15 @@ abstract class E2eTestBase {
         return email
     }
 
+    /**
+     * "generate" pretends the capture hook does not exist, which is how a project
+     * with real users is configured. Run the suite that way to prove it still
+     * passes before retiring the hook.
+     */
+    private val codeSource: String by lazy {
+        InstrumentationRegistry.getArguments().getString("codeSource") ?: "auto"
+    }
+
     private val runId: String by lazy {
         InstrumentationRegistry.getArguments().getString("runId")
             ?: (System.currentTimeMillis() % 1_000_000L).toString()
@@ -120,15 +129,44 @@ abstract class E2eTestBase {
     protected fun lastMailId(email: String): Long =
         admin("last_mail", "email" to email).optJSONObject("mail")?.optLong("id") ?: 0L
 
-    /** The six-digit code the user would read in their inbox. */
-    protected fun waitForCode(email: String, type: String, afterId: Long = 0L): String {
-        repeat(30) {
-            val mail = admin("last_mail", "email" to email, "action_type" to type)
-                .optJSONObject("mail")
-            if (mail != null && mail.optLong("id") > afterId) return mail.getString("token")
-            SystemClock.sleep(1_000)
+    /**
+     * The six-digit code the user would read in their inbox.
+     *
+     * Preferred source is the capture hook, because that is the code the app's own
+     * send actually produced. Where that hook has been retired — which is what a
+     * project with real users should look like — GoTrue mints the same OTP on
+     * demand instead, without sending anything. The flow under test is identical
+     * either way, so the suite does not care which arrangement the project is in.
+     */
+    protected fun waitForCode(
+        email: String,
+        type: String,
+        afterId: Long = 0L,
+        /** The address that owns the account; only an email change needs it. */
+        currentEmail: String? = null,
+    ): String {
+        if (codeSource != "generate") {
+            repeat(10) {
+                val mail = admin("last_mail", "email" to email, "action_type" to type)
+                    .optJSONObject("mail")
+                if (mail != null && mail.optLong("id") > afterId) return mail.getString("token")
+                SystemClock.sleep(1_000)
+            }
         }
-        error("no $type code arrived for $email")
+        val generated = when (type) {
+            "email_change" -> admin(
+                "generate_otp",
+                "type" to "email_change_new",
+                "email" to (currentEmail ?: error("an email change needs the current address")),
+                "new_email" to email,
+            )
+
+            else -> admin("generate_otp", "type" to type, "email" to email)
+        }.optString("email_otp")
+        check(generated.length == 6) {
+            "no $type code arrived for $email, and none could be generated"
+        }
+        return generated
     }
 
     protected fun serverBackup(email: String): JSONObject? =

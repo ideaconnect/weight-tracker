@@ -1,5 +1,6 @@
 package tech.idct.weighttracker.e2e
 
+import android.os.SystemClock
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -73,6 +74,10 @@ class AccountErrorsTest : E2eTestBase() {
         val first = waitForCode(email, "signup")
         val firstId = lastMailId(email)
 
+        // GoTrue refuses a resend within max_frequency of the last send. Reading the
+        // code from the capture hook used to absorb that second; generating it does
+        // not, and no real user taps "resend" a second after signing up.
+        SystemClock.sleep(2_500)
         tap("Send a new code")
         waitFor("Code sent")
         screenshot("code-resent")

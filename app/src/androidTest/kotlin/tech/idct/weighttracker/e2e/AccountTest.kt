@@ -131,7 +131,7 @@ class AccountTest : E2eTestBase() {
         tap("Send code to the new address")
 
         waitFor("Verify the new address")
-        val code = waitForCode(newEmail, "email_change", before)
+        val code = waitForCode(newEmail, "email_change", before, currentEmail = email)
         typeInto("CODE", code)
         screenshot("email-change-code")
         tap("Verify new address")

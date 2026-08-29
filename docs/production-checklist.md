@@ -19,16 +19,30 @@ tests drive. It should not be.
 - [ ] **Rotate `E2E_ADMIN_SECRET`** if it has ever been shared, and keep the
       copy in `secrets/` backed up somewhere the team can reach: nothing else
       can recover it.
-- [ ] **Real SMTP, and the mail hook off — together.** `[auth.email.smtp]` in
-      `supabase/config.toml` points at `smtp.invalid`, and
-      `[auth.hook.send_email]` intercepts every message before it gets there.
-      Changing only one of the two breaks all account email silently: no
-      verification, no password reset. Put real credentials in the SMTP block in
-      the same change that sets `enabled = false` on the hook.
-- [ ] **Drop `public.auth_mail` on the production project.** While the hook is
-      on, every verification and password-reset code is stored there in plain
-      text. Rows are pruned after 15 minutes, which is a development safeguard,
-      not a reason to keep the table where real users exist.
+- [x] **Real SMTP is configured on the project** (2026-08-29).
+- [ ] **Turn the capture hook off, so that SMTP is actually used.** While
+      `[auth.hook.send_email]` is enabled GoTrue calls the hook *instead of*
+      sending, so no account email leaves the project no matter what SMTP says.
+      Set `enabled = false` on the hook and push with `e2e/config-push.sh`.
+
+      The E2E suite no longer stands in the way: it reads codes from the hook
+      when one exists and asks GoTrue to mint them otherwise, and every
+      code-dependent scenario is verified both ways. Prove it for yourself first:
+
+      ```
+      python e2e/run.py --generated-codes
+      ```
+
+- [ ] **Put the SMTP values in `secrets/smtp.env`** (`SMTP_HOST`, `SMTP_USER`,
+      `SMTP_PASS`, `SMTP_ADMIN_EMAIL`), matching what is configured on the
+      project. `supabase/config.toml` no longer carries them, and
+      `e2e/config-push.sh` refuses to push without them — previously the file
+      held a placeholder host, so any push silently replaced working SMTP
+      settings with a dead one.
+- [ ] **Drop `public.auth_mail`** once the hook is off. While the hook is on,
+      every verification and password-reset code is stored there in plain text.
+      Rows are pruned after 15 minutes, which is a development safeguard, not a
+      reason to keep the table where real users exist. Nothing else reads it.
 - [ ] **Check the email rate limits** in `[auth.rate_limit]`. They are currently
       raised to 720/hour so the test suite can run; production wants something
       closer to the default.

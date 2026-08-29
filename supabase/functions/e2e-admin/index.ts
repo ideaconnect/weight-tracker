@@ -99,6 +99,28 @@ Deno.serve(async (req) => {
         return Response.json({ exists: (await findUser(email)) !== null });
       }
 
+      // Codes without an inbox: GoTrue mints the same OTP the user would be sent.
+      // This is what lets the suite keep working once the capture hook is retired.
+      case "generate_otp": {
+        const email = assertTestAddress(p.email);
+        const body: Record<string, unknown> = { type: p.type, email };
+        if (p.new_email) body.new_email = assertTestAddress(p.new_email);
+        if (p.password) body.password = p.password;
+        const r = await gotrue("/admin/generate_link", {
+          method: "POST",
+          body: JSON.stringify(body),
+        });
+        const b = r.body as Record<string, unknown>;
+        return Response.json(
+          {
+            email_otp: b?.email_otp ?? null,
+            verification_type: b?.verification_type ?? null,
+            error: b?.error ?? b?.msg ?? null,
+          },
+          { status: r.status },
+        );
+      }
+
       case "last_mail": {
         const email = assertTestAddress(p.email);
         const filter = p.action_type

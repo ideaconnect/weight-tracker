@@ -245,18 +245,21 @@ otp_expiry = 3600
 
 # Uncomment to customize email template
 [auth.email.smtp]
-# PAIRED WITH [auth.hook.send_email] BELOW — change both together.
-# Never actually contacted: the send_email hook below intercepts every auth mail.
-# Disabling that hook without putting real credentials here leaves GoTrue dialling
-# smtp.invalid, and every signup, reset and email change fails to deliver silently.
-# A custom SMTP block must exist for the email rate limits above to be
-# configurable; replace with real SMTP details when going to production.
+# PAIRED WITH [auth.hook.send_email] BELOW — read both before changing either.
+#
+# Real SMTP is configured on the project. This file is committed, so the values
+# live in secrets/smtp.env instead of here, and `config push` FAILS if they are
+# unset rather than overwriting what the project already has. It used to carry a
+# placeholder host, which meant any push silently replaced working SMTP settings
+# with smtp.invalid.
+#
+# Push with e2e/config-push.sh, never with a bare `supabase config push`.
 enabled = true
-host = "smtp.invalid"
+host = "env(SMTP_HOST)"
 port = 587
-user = "unused"
-pass = "unused"
-admin_email = "bartosz@idct.tech"
+user = "env(SMTP_USER)"
+pass = "env(SMTP_PASS)"
+admin_email = "env(SMTP_ADMIN_EMAIL)"
 sender_name = "Weight Tracker"
 
 
@@ -271,10 +274,13 @@ sender_name = "Weight Tracker"
 # content_path = "./templates/password_changed_notification.html"
 
 [auth.hook.send_email]
-# PAIRED WITH [auth.email.smtp] ABOVE — change both together.
-# Development only: this stores every verification code in public.auth_mail so the
-# E2E suite can read it. Turning it off requires real SMTP credentials above, or no
-# auth email is delivered at all. See docs/production-checklist.md.
+# PAIRED WITH [auth.email.smtp] ABOVE — read both before changing either.
+#
+# While this is on, GoTrue calls the hook INSTEAD of sending, so the SMTP block
+# above is configured but unused: no account email actually leaves the project.
+# The hook stores every verification code in public.auth_mail so the E2E suite can
+# read it, which is a development arrangement and must not run where real users
+# are. See docs/production-checklist.md for how to retire it.
 enabled = true
 uri = "https://fxvdmzzkukcilysvahiy.supabase.co/functions/v1/auth-mail-hook"
 secrets = "env(SEND_EMAIL_HOOK_SECRET)"

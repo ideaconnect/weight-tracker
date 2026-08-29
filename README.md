@@ -77,9 +77,10 @@ backups schema migration and two edge functions (both for testing only — see
 `docs/production-checklist.md`). `e2e/verify_backend.py`
 proves every auth and backup flow against the live project. One deliberate
 dev-stage choice: a send-email auth hook routes verification codes into a
-service-role-only table (so tests can read them) instead of sending real
-email. **Before production, configure real SMTP in `supabase/config.toml` and
-disable the `[auth.hook.send_email]` block.**
+service-role-only table instead of sending real email. It is not load-bearing
+for the tests — they fall back to asking GoTrue for the same code, which
+`--generated-codes` exercises on purpose — so it can be switched off whenever
+the project is ready. See `docs/production-checklist.md`.
 
 **`secrets/keystore.properties`** (optional, never committed)
 
@@ -152,9 +153,10 @@ address that already has an account. Each scenario captures screenshots as it
 goes, and every account it creates is deleted afterwards even if it fails.
 
 ```
-python e2e/run.py                # build, install, run everything
-python e2e/run.py --skip-build   # reuse the installed APKs
-python e2e/run.py backup restore # a subset
+python e2e/run.py                   # build, install, run everything
+python e2e/run.py --skip-build      # reuse the installed APKs
+python e2e/run.py backup restore    # a subset
+python e2e/run.py --generated-codes # as if the mail-capture hook were off
 ```
 
 Needs a running emulator, and `secrets/` populated (see `e2e/supa.py`) so the
