@@ -183,6 +183,88 @@ changed behaviour:
   calendar dates, and the in-app previews are painted by the widget painter
   itself rather than by a Compose copy of it that had drifted.
 
+### Widgets fit the cell they are given
+
+- **A denser home-screen grid no longer shrinks a widget's contents into the
+  corner of it.** The fit was one-way: it grew a design into a cell larger than
+  the prototype's, but its scale was floored at the design size and read height
+  alone, so a cell *smaller* than the design got the design drawn at full size
+  and the launcher clipped whatever hung over. On a five-column, nine-row grid
+  that is most of them. The 4x2 chart lost the date axis under its plot, the
+  2x2's ring lost its top and bottom, and at the very sizes the two lock-screen
+  widgets declare in `res/xml` as their own minimum the type was cut through the
+  middle. The fit is now symmetric and two-dimensional, with nothing floored at
+  the design size: above the design size it damps exactly as before, and below
+  it type tracks the cell one for one down to a 9 sp legibility floor, at which
+  point §12 drops a line rather than print one too small to read.
+- **The inset follows the cell.** A constant 14 dp all round is right for a cell
+  of the prototype's size and takes a third of a nine-row grid's 4x1 before
+  anything is drawn. Both insets still saturate at 14 dp, so a cell of the size
+  the screenshots were taken at is untouched.
+- **Every remainder is a remainder.** `coerceAtLeast(72f)` on a chart height is
+  a floor *above* the space left, so it did not make room, it pushed the axis
+  off the bottom. The 4x2 and the 4x4 now drop the energy line to find the room
+  and then take what is left; the 2x2's ring and both lock-screen rings are
+  sized against what their labels leave rather than against a constant.
+- **Type budgets count the reader's text size.** A column measured in bare sp
+  against a dp box overruns by exactly the system font scale, which is the same
+  clipping arriving by a different door. `Cell.lineH` now counts it, and the ring
+  captions that are sized to fit a dp box ask for it in sp rather than declaring
+  a dp quantity as sp. At the default setting every number is what it was.
+- Verified by rendering all six widgets at four cell sizes each, at the default
+  text size and at 1.3x: `WidgetSizingTest` composes each widget at an explicit
+  dp cell and writes a PNG, which is the whole of what a grid change does to a
+  composition without needing a launcher that offers the grid. Every cell the
+  repo's screenshots were taken at renders byte-identically to before the fix.
+  `WidgetCellTest` pins the arithmetic under it, and `SeedData.resizeWidgets`
+  (`--ei cellw --ei cellh`) drives the real `APPWIDGET_UPDATE_OPTIONS` path on a
+  device.
+
+### Time itself is now under test
+
+Every scenario used to see a single day, so it could only ever check the
+arithmetic once — and almost nothing this app says is a function of the data
+alone. Three scenarios now move the emulator's own clock (`cmd alarm set-time`,
+which needs no root) and then only watch: no extra fixtures, no day-change
+broadcast, no reminder posted by hand. The fixture is pinned to the section 5
+worked example rather than to "today", so the plan really does start on
+2026-07-01 at 82.4 kg and aim at 75.0 kg by 2026-11-30.
+
+- **`temporal-plan`** walks day 57, 64, 71 and 92 without logging anything. The
+  same 79.2 kg reads 0.4 kg ahead, 0.1 ahead, 0.3 behind and 1.3 behind; "lost
+  so far" and "left to go" stay frozen while the rate the plan asks for climbs
+  from 0.04 to 0.07 kg a day and the projected finish slides from 2026-11-10 to
+  2026-12-15, past the deadline. The clock moves while the app is in the
+  background, so it also proves the day is re-read on resume. A weigh-in on the
+  last day puts it back on the good side.
+- **`temporal-widgets`** places the ring and the bar on day 57 and then only
+  moves the clock. Both turn amber for day 71 by themselves, with the launcher's
+  own pixels and the widget's own words read back — the bar's figure rises from
+  370 to 440 kcal a day, because there are fourteen fewer days left to do the
+  same 4.2 kg in.
+- **`temporal-reminder`** runs the alarm chain for four days without posting
+  anything itself. Each morning's reminder arrives on its own after 08:00 and
+  carries that day's arithmetic: "0.4 kg ahead ... yesterday you were 79.2 kg",
+  then "0.3 kg ahead ... last logged on 2026-08-27" once the weigh-in is older
+  than yesterday, then "0.3 kg behind" eleven days later off the same fixture.
+
+Two defects came out of writing them:
+
+- **A widget that outlived midnight kept yesterday's day.** Redrawing was not
+  enough: Glance recomposes a running session rather than calling
+  `provideGlance` again, and the widget's data is a combine over four Room
+  flows, none of which emits merely because it is tomorrow. So the midnight
+  refresh recomposed the same snapshot, date and all, and only a phone whose app
+  process had died overnight — the common case, which is why this survived —
+  came back right. `DayChange` now publishes the day as a `StateFlow` and the
+  widgets combine over it.
+- **The log sheet's keypad could be typed wrong by a test.** Keys were found by
+  the digit on them, and with a "7" already on the display the merged node
+  covering the whole sheet carried the text "7" and a click action too — so
+  typing "77.0" clicked the middle of the sheet and produced "75.0". The keys
+  carry test tags now. Only repeated digits were affected, which no scenario had
+  typed before.
+
 ### Known gaps
 
 - Play Billing and AdMob still need IDs from a real account before they do

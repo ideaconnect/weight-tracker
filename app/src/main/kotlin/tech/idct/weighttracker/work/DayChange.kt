@@ -10,6 +10,9 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import tech.idct.weighttracker.widget.WidgetUpdater
 import java.time.LocalDate
@@ -53,8 +56,27 @@ object DayChange {
     }
     internal val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + handler)
 
+    /**
+     * The day, as somewhere a widget can listen to it.
+     *
+     * Asking WidgetUpdater to redraw is not enough on its own. Glance recomposes a
+     * running session rather than calling provideGlance again, and the widget's
+     * data is a combine over four Room flows — none of which emits merely because
+     * it is tomorrow. So a redraw at 00:01 recomposed the same snapshot, complete
+     * with yesterday's date, and the widget went on showing yesterday's verdict
+     * for as long as the process and the session happened to live. Only a phone
+     * whose app process had died overnight — the common case, which is why this
+     * survived — came back with the right day.
+     *
+     * A StateFlow conflates equal values, so this emits once when the day really
+     * turns and never on a refresh that changes nothing.
+     */
+    private val _today = MutableStateFlow(LocalDate.now())
+    val today: StateFlow<LocalDate> = _today.asStateFlow()
+
     /** Everything that shows "today" outside the app: the widgets and a posted reminder. */
     suspend fun refresh(context: Context) {
+        _today.value = LocalDate.now()
         WidgetUpdater.updateAll(context)
         Reminder.refreshIfShowing(context)
         Log.i(TAG, "Widgets and reminder refreshed for ${LocalDate.now()}")

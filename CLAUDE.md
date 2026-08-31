@@ -65,6 +65,11 @@ wrong.
 - The reminder receiver is not exported in release. The debug manifest exports it
   so it can be fired from `adb`; shell broadcasts cannot reach a non-exported
   receiver.
+- Redrawing a widget does not move it on to a new day. Glance recomposes a
+  running session instead of calling `provideGlance` again, and `WidgetData.flow`
+  is a combine over Room flows that emit nothing merely because it is tomorrow.
+  `DayChange.today` is the fifth source that makes the day itself an event; drop
+  it and the midnight refresh silently redraws yesterday.
 
 ## Testing on a device
 
@@ -73,6 +78,14 @@ for the `adb` invocations. It is debug-only and must stay that way.
 
 Verify UI changes on a real emulator rather than from previews; every bug in the
 list above was invisible in code and obvious in a screenshot.
+
+Anything that depends on the date is tested by moving the emulator's clock, not
+by injecting a fake one: `DeviceClock` in the E2E sources drives `cmd alarm
+set-time`, which is the path Settings itself takes, so alarms really fire and
+`TIME_SET` really reaches the app. `TemporalTest` seeds on 2026-08-27 — which
+makes the fixture the section 5 worked example to the day — and then only
+travels. The clock is always given back, in the test's `@After` and again in
+`run.py`.
 
 ## Configuration
 

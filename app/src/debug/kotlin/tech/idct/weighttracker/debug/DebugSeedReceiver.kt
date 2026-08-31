@@ -19,6 +19,10 @@ import kotlinx.coroutines.launch
  *         --ez reminder true (leave the daily reminder switched on and armed)
  *         --ei minute   NNN  (reminder time as minutes past midnight, e.g. 1260 for 21:00)
  *         --ez clear    true (wipe everything instead of seeding)
+ *         --ez unlockonly true (grant the widget entitlement and nothing else)
+ *         --ei cellw NNN --ei cellh NNN (tell every placed widget it has that dp
+ *             cell, the way a launcher does when its grid changes; how a denser
+ *             grid is reproduced on an emulator whose launcher has no such setting)
  */
 class DebugSeedReceiver : BroadcastReceiver() {
 
@@ -29,6 +33,12 @@ class DebugSeedReceiver : BroadcastReceiver() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 when {
+                    intent.hasExtra("cellw") -> SeedData.resizeWidgets(
+                        app,
+                        widthDp = intent.getIntExtra("cellw", 0),
+                        heightDp = intent.getIntExtra("cellh", 0),
+                    )
+                    intent.getBooleanExtra("unlockonly", false) -> SeedData.unlock(app)
                     intent.getBooleanExtra("hcwrite", false) -> SeedData.hcWrite(app)
                     intent.getBooleanExtra("clear", false) -> SeedData.clear(app)
                     else -> SeedData.seed(

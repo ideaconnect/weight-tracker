@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ActivityScenario
@@ -50,10 +51,25 @@ abstract class E2eTestBase {
     private var shot = 0
     private val ownedAccounts = linkedSetOf<String>()
 
+    /**
+     * The emulator's own clock, for the scenarios that have to see more than one
+     * day. Untouched unless a scenario travels; see [DeviceClock].
+     */
+    protected val clock: DeviceClock by lazy { DeviceClock(device) }
+
     @After
     fun tearDownScenario() {
         scenario?.close()
         scenario = null
+    }
+
+    /**
+     * A scenario that failed half-way through a fortnight of time travel must not
+     * leave the emulator — and every scenario after it — living in the future.
+     */
+    @After
+    fun restoreDeviceClock() {
+        runCatching { clock.release() }
     }
 
     /**
@@ -155,12 +171,27 @@ abstract class E2eTestBase {
         seed: Boolean = false,
         behind: Boolean = false,
         unlock: Boolean = false,
+        /** Leave the daily reminder switched on and its alarm armed. */
+        reminder: Boolean = false,
+        /** The reminder's time as minutes past midnight; null keeps the default 08:00. */
+        reminderMinute: Int? = null,
         signedIn: Pair<String, String>? = null,
     ) = runBlocking {
         repo.deleteAllData()
         app.getSharedPreferences("wt_account", Context.MODE_PRIVATE).edit().clear().commit()
         app.getSharedPreferences("wt_backup", Context.MODE_PRIVATE).edit().clear().commit()
-        if (seed) SeedData.seed(app, behind = behind, unlock = unlock)
+        // The alarm-side mirror — what the daily alarm was last armed for, and the
+        // last day it was delivered. It survives deleteAllData, and a scenario that
+        // travels to a new day would otherwise inherit the previous scenario's idea
+        // of which reminder had already been sent.
+        app.getSharedPreferences("reminder", Context.MODE_PRIVATE).edit().clear().commit()
+        if (seed) SeedData.seed(
+            app,
+            behind = behind,
+            unlock = unlock,
+            reminder = reminder,
+            reminderMinute = reminderMinute,
+        )
         repo.updateSettings { it.copy(onboardingComplete = true) }
         if (signedIn != null) {
             val auth = SupabaseAuth(app, SupabaseClient(app))
@@ -175,6 +206,45 @@ abstract class E2eTestBase {
         val intent = Intent(app, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         scenario = ActivityScenario.launch<MainActivity>(intent)
+        compose.waitForIdle()
+    }
+
+    /**
+     * The launcher's own way in, and the only one that survives being sent to the
+     * background and brought back: ActivityScenario cannot follow an activity
+     * through a stop and a fresh intent, and its teardown fails afterwards.
+     */
+    protected fun startAppByIntent() {
+        app.startActivity(
+            Intent(app, MainActivity::class.java)
+                .setAction(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        )
+        compose.waitForIdle()
+    }
+
+    /**
+     * Home, then back into the running instance — no CLEAR_TASK, so the activity
+     * and its view model are the ones that were already there.
+     *
+     * [pauseMs] is not padding: `ui` is shared with `WhileSubscribed(5_000)` and
+     * collected with `collectAsStateWithLifecycle`, so the flow behind it only
+     * really stops five seconds after the screen does. A shorter trip to the home
+     * screen leaves the old collector running and the date it captured with it.
+     */
+    protected fun backgroundApp(pauseMs: Long = 7_000) {
+        device.pressHome()
+        SystemClock.sleep(pauseMs)
+    }
+
+    protected fun foregroundApp() {
+        app.startActivity(
+            Intent(app, MainActivity::class.java)
+                .setAction(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        )
         compose.waitForIdle()
     }
 
@@ -233,10 +303,21 @@ abstract class E2eTestBase {
         compose.waitForIdle()
     }
 
-    /** Types a weight on the log sheet's keypad and saves. */
+    /**
+     * Types a weight on the log sheet's keypad and saves.
+     *
+     * The keys are found by tag rather than by the digit on them. Matching the
+     * text picked the wrong node the moment a digit was repeated — "77.0" put a
+     * "7" on the display, and the merged node covering the sheet then carried the
+     * text "7" and a click action too, so the tap landed in the middle of the
+     * keypad and typed a 5.
+     */
     protected fun logWeightViaKeypad(digits: String) {
         waitFor("Log weight")
-        digits.forEach { d -> tap(d.toString()) }
+        digits.forEach { d ->
+            compose.onNodeWithTag("key-$d").performClick()
+            compose.waitForIdle()
+        }
         tap("Save")
     }
 
@@ -270,6 +351,28 @@ abstract class E2eTestBase {
             SystemClock.sleep(400)
         }
         return false
+    }
+
+    /**
+     * Settings → Widgets, the gallery every widget scenario places from. Shared
+     * because two scenarios now place widgets and the flow is fiddly enough that
+     * two copies of it would drift.
+     */
+    protected fun openWidgetGallery() {
+        tapTab("Settings")
+        tap("Widgets unlocked")
+        waitFor("Unlocked · ads off")
+    }
+
+    /** Pins the widget named by [kind] — a WidgetKind — from the gallery. The
+     * confirmation is the launcher's own dialog, so UiAutomator taps it. */
+    protected fun placeWidget(kind: String) {
+        compose.onNodeWithTag("widget-$kind").performScrollTo().performClick()
+        compose.waitForIdle()
+        tap("Add to home screen")
+        val added = tapSystemButton("Add automatically", "Add to home screen", "ADD", "Add")
+        check(added) { "the launcher never offered to pin the $kind widget" }
+        SystemClock.sleep(1_500)
     }
 
     protected fun grantHealthPermissions() {

@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -196,6 +197,11 @@ fun LogSheet(
         items(keys) { key ->
             Box(
                 modifier = Modifier
+                    // Named because the digit alone is not enough to find a key: with
+                    // "7" already on the display, a test asking for the "7" key by its
+                    // text matched the merged node above the whole sheet as well, and
+                    // clicked its middle — the "5" key.
+                    .testTag("key-$key")
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(RoundedCornerShape(14.dp))

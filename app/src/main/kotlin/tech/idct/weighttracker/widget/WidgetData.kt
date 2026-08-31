@@ -12,6 +12,7 @@ import tech.idct.weighttracker.domain.PlanStats
 import tech.idct.weighttracker.domain.ThemeChoice
 import tech.idct.weighttracker.domain.WeightEntry
 import tech.idct.weighttracker.domain.WeightUnit
+import tech.idct.weighttracker.work.DayChange
 import java.time.LocalDate
 
 /**
@@ -60,7 +61,15 @@ data class WidgetData(
                 repo.observePlan(),
                 repo.observeSettings(),
                 repo.observeUnlocked(),
-            ) { entries, plan, settings, unlocked ->
+                // The fifth source is the calendar. Every number below hangs off
+                // "today", and none of the four above emits merely because the day
+                // turned — so without this a session that outlived midnight
+                // recomposed yesterday's snapshot however often it was asked to
+                // redraw. [DayChange.today] says when the day really moved; the
+                // date itself is read from the clock in [build], which is correct
+                // whichever source woke the combine up.
+                DayChange.today,
+            ) { entries, plan, settings, unlocked, _ ->
                 build(context, entries, plan, settings, unlocked)
             }
         }

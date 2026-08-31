@@ -88,6 +88,16 @@ SCENARIOS = [
      "The reminder posts with real numbers; a bad inline reply is refused in words, a good one saves and confirms; Snooze arms its own alarm without touching the daily one."),
     ("reminder-deep-link", "ReminderTest#notificationTapOpensTheLogSheetOnce",
      "Tapping the reminder while the app is in the background opens the log sheet in the one existing activity."),
+    ("temporal-plan", "TemporalTest#planFollowsTheCalendar",
+     "The clock moves from day 57 to day 92 of the plan and nothing else does: the same 79.2 kg reads "
+     "0.4 ahead, 0.1 ahead, 0.3 behind, 1.3 behind, the daily rate climbs from 0.04 to 0.07 kg, and the "
+     "projected finish slides past the deadline. One weigh-in on day 92 puts it back on the good side."),
+    ("temporal-widgets", "TemporalTest#widgetsFollowTheCalendar",
+     "The ring and the bar are placed on day 57 and then only the clock moves: with the app closed, both "
+     "widgets redraw themselves amber for day 71 — read back from the launcher's own pixels."),
+    ("temporal-reminder", "TemporalTest#theReminderArrivesEveryDayAndKnowsWhatDayItIs",
+     "Four days of the alarm chain with nothing posted by hand: the reminder arrives by itself each "
+     "morning after 08:00, carrying that day's arithmetic, and turns from ahead to behind on the same data."),
 ]
 
 
@@ -112,6 +122,15 @@ def build_and_install():
         sys.exit("install failed")
 
 
+def restore_clock():
+    """The temporal scenarios move the emulator's clock and put it back themselves,
+    but only if their process lives long enough to. Doing it again here means a
+    crash mid-time-travel cannot leave the next scenario — or the developer's
+    emulator — living three weeks in the future."""
+    adb("shell", "cmd", "alarm", "set-time", str(int(time.time() * 1000)), timeout=60)
+    adb("shell", "settings", "put", "global", "auto_time", "1", timeout=60)
+
+
 def run_scenario(name, target, description):
     adb("shell", "rm", "-rf", DEVICE_SHOTS)
     adb("shell", "am", "force-stop", PKG)
@@ -127,6 +146,7 @@ def run_scenario(name, target, description):
         timeout=900,
     )
     duration = time.time() - started
+    restore_clock()
     ok = bool(re.search(r"OK \(\d+ test", out)) and "FAILURES" not in out
 
     shots_dir = REPORT / "screenshots" / name
@@ -145,6 +165,23 @@ def run_scenario(name, target, description):
         "ok": ok, "duration": duration, "shots": shots,
         "log": "" if ok else tail_failure(out),
     }
+
+
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def caption(filename):
+    """The ordering prefix off, hyphens back to spaces — except inside a date, now
+    that the temporal scenarios name their shots after the day they were taken on.
+    "2026 09 10" is not a date anybody reads."""
+    label = filename[3:-4]
+    out, last = [], 0
+    for match in ISO_DATE.finditer(label):
+        out.append(label[last:match.start()].replace("-", " "))
+        out.append(match.group())
+        last = match.end()
+    out.append(label[last:].replace("-", " "))
+    return "".join(out).strip()
 
 
 def downscale(path, width=540):
@@ -197,7 +234,7 @@ def render(results, fingerprint):
         + '<div class="shots">'
         + "".join(
             f'<figure><img src="screenshots/{r["name"]}/{s}" loading="lazy">'
-            f'<figcaption>{s[3:-4].replace("-", " ")}</figcaption></figure>'
+            f'<figcaption>{caption(s)}</figcaption></figure>'
             for s in r["shots"]
         )
         + "</div></section>"
@@ -221,7 +258,10 @@ def render(results, fingerprint):
 </style>
 <h1>Weight Tracker · E2E report</h1>
 <p class="meta">{stamp} · {passed}/{total} passed · every scenario drives the real UI on the emulator
-against the real Supabase project ({supa.URL}) · device {fingerprint}</p>
+against the real Supabase project ({supa.URL}) · device {fingerprint}<br>
+The three <code>temporal-*</code> scenarios move the emulator's own clock across weeks of the plan and
+then only watch: no extra fixtures, no day-change broadcast, no reminder posted by hand. Each caption
+below is the date the device believed in when the shot was taken.</p>
 <table><tr><th>Scenario</th><th>Result</th><th>Time</th><th>What it proves</th></tr>{rows}</table>
 {sections}
 """

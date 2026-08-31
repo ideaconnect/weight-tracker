@@ -1,9 +1,6 @@
 package tech.idct.weighttracker.e2e
 
 import android.os.SystemClock
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,7 +14,7 @@ class WidgetsTest : E2eTestBase() {
     fun multipleWidgets() {
         resetApp(seed = true, unlock = true)
         launchApp()
-        openGallery()
+        openWidgetGallery()
         screenshot("gallery")
         placeWidget("RING")
 
@@ -25,15 +22,15 @@ class WidgetsTest : E2eTestBase() {
         // was cleared), so the second placement starts from a fresh launch
         // rather than assuming the gallery survived.
         launchApp()
-        openGallery()
+        openWidgetGallery()
         placeWidget("BAR")
 
         // The two lock-screen sizes were the only widgets no scenario ever placed.
         launchApp()
-        openGallery()
+        openWidgetGallery()
         placeWidget("GLANCE")
         launchApp()
-        openGallery()
+        openWidgetGallery()
         placeWidget("GLANCE_COMPACT")
 
         device.pressHome()
@@ -64,7 +61,7 @@ class WidgetsTest : E2eTestBase() {
         for ((kind, receiver) in listOf("RING" to "RingWidgetReceiver", "BAR" to "BarWidgetReceiver")) {
             if (!bound.contains(receiver)) {
                 launchApp()
-                openGallery()
+                openWidgetGallery()
                 placeWidget(kind)
             }
         }
@@ -91,11 +88,11 @@ class WidgetsTest : E2eTestBase() {
         SystemClock.sleep(1_500)
 
         launchApp()
-        openGallery()
+        openWidgetGallery()
         screenshot("gallery-chart-previews")
         placeWidget("CHART")
         launchApp()
-        openGallery()
+        openWidgetGallery()
         placeWidget("BIG")
 
         device.pressHome()
@@ -105,20 +102,5 @@ class WidgetsTest : E2eTestBase() {
         val bound = device.executeShellCommand("dumpsys appwidget")
         assertTrue("chart widget must be bound", bound.contains("ChartWidgetReceiver"))
         assertTrue("big widget must be bound", bound.contains("BigWidgetReceiver"))
-    }
-
-    private fun openGallery() {
-        tapTab("Settings")
-        tap("Widgets unlocked")
-        waitFor("Unlocked · ads off")
-    }
-
-    private fun placeWidget(kind: String) {
-        compose.onNodeWithTag("widget-$kind").performScrollTo().performClick()
-        compose.waitForIdle()
-        tap("Add to home screen")
-        val added = tapSystemButton("Add automatically", "Add to home screen", "ADD", "Add")
-        assertTrue("the launcher never offered to pin the widget", added)
-        SystemClock.sleep(1_500)
     }
 }

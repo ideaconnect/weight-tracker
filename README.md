@@ -129,9 +129,20 @@ adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez behind
 adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez unlock true
 adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez clear true
 
+# Grant the widget entitlement and touch nothing else — for a real phone, where
+# the sample series would be two months of invented weights and Play Billing has
+# no product to sell yet
+adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez unlockonly true
+
 # Write records into Health Connect, then clear those days locally, so a sync
 # has to fill them back in
 adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez hcwrite true
+
+# Tell every placed widget it has been given a cell of this many dp, the way a
+# launcher does when its home-screen grid changes. A denser grid is otherwise
+# unreachable on an emulator whose launcher offers no such setting — this is a
+# 4x2 as a five-column, nine-row grid hands it:
+adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ei cellw 316 --ei cellh 156
 
 # Seed with the daily reminder switched on. Seeding and clearing wipe the
 # settings (section 13), which turns the reminder off, and a reminder that is
@@ -156,12 +167,33 @@ adb shell am broadcast -a tech.idct.weighttracker.DAY_CHANGED \
   -n $PKG/tech.idct.weighttracker.work.DayChangeReceiver
 ```
 
+Almost every number the app shows moves with the calendar rather than with the
+data, so the most useful thing to change by hand is the date. `cmd alarm
+set-time` takes the same path as a user setting the clock in Settings —
+AlarmManager rebatches and fires whatever is now overdue, and the system
+broadcasts `TIME_SET`, which the app listens for — and it needs no root, which
+the Play emulator images will not give you anyway.
+
+```bash
+# Stop the network putting it back, then move to a date (GNU date shown)
+adb shell settings put global auto_time 0
+adb shell cmd alarm set-time $(( $(date -d "2026-09-10 08:01:00" +%s) * 1000 ))
+
+# ...and afterwards
+adb shell cmd alarm set-time $(( $(date +%s) * 1000 ))
+adb shell settings put global auto_time 1
+```
+
+Seed first and travel afterwards: the fixture anchors itself to whatever the
+device calls today, so seeding on 2026-08-27 gives you the section 5 worked
+example exactly, and every jump from there is a real day of that plan.
+
 The seeded series runs from 2026-07-01 to the device's current date, ending on
 the specification's sample numbers (79.2 kg today, or 80.3 behind).
 
 ## End-to-end tests
 
-Twenty-eight scenarios drive the real UI on an emulator against the real Supabase
+Thirty-one scenarios drive the real UI on an emulator against the real Supabase
 project — accounts (sign-up with the emailed code, login, password reset and
 change, email change, deletion), the backup round trip, Health Connect in both
 directions, manual logging, widget placement (in both status colours), deleting all data,
@@ -172,6 +204,14 @@ and the plan verdicts including the trophy screen — plus the paths people hit 
 accident: a wrong password, a wrong code, a resend, and signing up with an
 address that already has an account. Each scenario captures screenshots as it
 goes, and every account it creates is deleted afterwards even if it fails.
+
+Three of them are temporal: they move the emulator's clock across weeks of the
+plan and then only watch. `temporal-plan` walks day 57 to day 92 without logging
+anything, and the same 79.2 kg goes from 0.4 kg ahead to 1.3 kg behind;
+`temporal-widgets` proves the launcher's widgets turn amber on their own;
+`temporal-reminder` waits four mornings for the alarm to post a reminder nobody
+asked it to. The clock is restored by the test and again by the runner, so a
+crash mid-travel cannot leave the emulator living in the future.
 
 ```
 python e2e/run.py                   # build, install, run everything

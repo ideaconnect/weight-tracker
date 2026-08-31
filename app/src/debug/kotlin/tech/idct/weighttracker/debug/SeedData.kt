@@ -1,7 +1,12 @@
 package tech.idct.weighttracker.debug
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Context
+import android.os.Build
+import android.os.Bundle
 import android.util.Log
+import android.util.SizeF
 import tech.idct.weighttracker.data.db.AppDatabase
 import tech.idct.weighttracker.data.health.HealthConnectManager
 import tech.idct.weighttracker.data.repo.WeightRepository
@@ -11,6 +16,7 @@ import tech.idct.weighttracker.domain.PlanMath
 import tech.idct.weighttracker.domain.PlanMode
 import tech.idct.weighttracker.domain.Units
 import tech.idct.weighttracker.domain.WeightEntry
+import tech.idct.weighttracker.widget.WidgetKind
 import tech.idct.weighttracker.widget.WidgetUpdater
 import tech.idct.weighttracker.work.Reminder
 import java.time.LocalDate
@@ -103,6 +109,20 @@ object SeedData {
         )
     }
 
+    /**
+     * Grant the widget entitlement and touch nothing else.
+     *
+     * [seed]'s `unlock` flag comes with two months of invented weights, which is
+     * right for a screenshot and wrong for a real phone. Play Billing has no
+     * product to sell yet (see docs/production-checklist.md), so on a device this
+     * is the only way to see the widgets at all.
+     */
+    suspend fun unlock(app: Context) {
+        WeightRepository.get(app).setUnlocked(true)
+        WidgetUpdater.updateAll(app)
+        Log.i("DebugSeed", "widgets unlocked; no data touched")
+    }
+
     suspend fun clear(app: Context) {
         WeightRepository.get(app).deleteAllData()
         // The settings went with the data, so the alarm and any posted reminder go too.
@@ -138,5 +158,38 @@ object SeedData {
             db.tombstones().clear(date.toEpochDay())
         }
         Log.i("DebugSeed", "wrote $written records to Health Connect")
+    }
+
+    /**
+     * Tell every placed widget it has been given a [widthDp] x [heightDp] cell, the
+     * way a launcher does when its home-screen grid changes. Debug only: it is how a
+     * denser grid is reproduced on an emulator whose launcher offers no such setting,
+     * and it drives the real APPWIDGET_UPDATE_OPTIONS path rather than a plain redraw.
+     */
+    fun resizeWidgets(app: Context, widthDp: Int, heightDp: Int) {
+        if (widthDp <= 0 || heightDp <= 0) return
+        val manager = AppWidgetManager.getInstance(app) ?: return
+        val options = Bundle().apply {
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, widthDp)
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, widthDp)
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, heightDp)
+            putInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, heightDp)
+            if (Build.VERSION.SDK_INT >= 31) {
+                putParcelableArrayList(
+                    AppWidgetManager.OPTION_APPWIDGET_SIZES,
+                    arrayListOf(SizeF(widthDp.toFloat(), heightDp.toFloat())),
+                )
+            }
+        }
+        var touched = 0
+        WidgetKind.entries.forEach { kind ->
+            val provider = ComponentName(app, kind.receiver)
+            runCatching { manager.getAppWidgetIds(provider) }.getOrDefault(intArrayOf())
+                .forEach { id ->
+                    manager.updateAppWidgetOptions(id, options)
+                    touched++
+                }
+        }
+        Log.i("DebugSeed", "told $touched widget(s) they are ${widthDp}x${heightDp} dp")
     }
 }
