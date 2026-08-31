@@ -113,6 +113,22 @@ widget/      The Glance widgets and the bitmap painter for rings and sparklines
 work/        The daily sync worker and the reminder alarm
 ```
 
+## The launcher icon
+
+`assets/icon.png` is the artwork. The launcher wants two 108 dp layers it can
+mask to whatever shape the device uses, showing only the centre 72 dp, so the
+plate is taken apart into a background (the gradient, bled past the mask) and a
+foreground (the figure, cropped by the mask below the hands, as the Play Store
+icon is). Regenerate after changing the artwork:
+
+```
+python assets/make_launcher_icon.py     # needs numpy, scipy, Pillow
+```
+
+It rewrites `ic_launcher_background/foreground/monochrome.png` in every
+`app/src/main/res/mipmap-*dpi`. Edit the script, not the PNGs. The notification
+icon is separate and hand-drawn: `res/drawable/ic_notification.xml`.
+
 ## Testing fixtures (debug builds only)
 
 The debug build carries a fixture loader so the screens can be exercised without
@@ -235,7 +251,7 @@ landing page is `index.html`, and the privacy policy, terms, account-deletion
 page and contact form each live in their own folder. Screenshots under
 `assets/img/shots/` were taken on the emulator from the debug fixture; the icon
 set and the Play Store assets in `assets/store/` are derived from
-`assets/icon.png`.
+`assets/icon.png`, as is the launcher icon (see above).
 
 ```
 cd website && bundle install && bundle exec jekyll serve   # http://127.0.0.1:4000/weight-tracker/

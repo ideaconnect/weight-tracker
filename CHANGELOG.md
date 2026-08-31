@@ -265,6 +265,39 @@ Two defects came out of writing them:
   carry test tags now. Only repeated digits were affected, which no scenario had
   typed before.
 
+### The launcher wears the real icon
+
+- **The app icon is now the artwork, not a stand-in.** `assets/icon.png` — the
+  figure on a mesh gradient that the Play Store icon and the website already use
+  — was drawn for an iOS-style plate: one flat picture, 768 px square, with its
+  own rounded corners baked in and the figure running nearly edge to edge. Used
+  whole as an adaptive icon it would have been rounded twice, and the launcher's
+  mask, which shows only the centre 72 dp of the 108 dp canvas, would have taken
+  the head and the hands. So the plate is taken apart and rebuilt to that
+  geometry: the gradient becomes the background layer, bled past the mask on
+  every side, and the figure becomes the foreground, sized so the mask crops it
+  below the hands and through the hips — where the store icon is already cropped.
+  The two now show the same picture. `assets/make_launcher_icon.py` does the
+  work and is the thing to edit; the PNGs under `res/mipmap-*dpi` are its output.
+- **The chart motif stays on the notification.** The bars and trend lines in the
+  source sit at the plate's edge, which is exactly what the mask eats, and
+  unmixed off the gradient they carry an alpha of about 0.03 — invisible at
+  48 dp, and at the mask edge only clipped fragments of themselves. Boosting
+  them read as dirt rather than as a chart, so the foreground carries the figure
+  alone. `ic_notification` is unchanged and still carries the chart.
+- **Themed icons get a real monochrome layer.** It used to be the old green
+  chart glyph doing double duty as foreground and monochrome both; it is now the
+  figure's silhouette, so an Android 13 themed icon is recognisably the same
+  mark. The pinholes that a colour icon hides — white on white — had to be
+  closed for it, since a tint turns each one into a speck.
+- Cutting the figure off the gradient it was painted on is what the script
+  mostly does. The white body alone leaves a hole at the neck, because the
+  shadow under the chin is a blue-grey the "is this white?" test rejects; a test
+  loose enough to keep it also swallows the drop shadow around the figure, which
+  is the same colour. So the loose test counts only inside a morphological
+  closing of the tight one: the neck fills, the outside does not, and the
+  windows between arm and torso stay open onto the background.
+
 ### Known gaps
 
 - Play Billing and AdMob still need IDs from a real account before they do
