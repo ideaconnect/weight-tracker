@@ -53,7 +53,7 @@ sdk.dir=/path/to/android-sdk
 | Storage | Room, one local database, always the source of truth |
 | Health data | Health Connect client, `WeightRecord` read and write |
 | Widgets | Glance, six providers |
-| Scheduling | WorkManager for the daily sync, AlarmManager for the reminder |
+| Scheduling | WorkManager for the half-hourly sync and the hourly refresh, AlarmManager for the reminder |
 | Payments | Play Billing, one non-consumable product |
 | Ads | One 320×50 banner, home screen only |
 | Accounts | Supabase email + password, verified with a 6-digit code, optional |
@@ -110,7 +110,7 @@ data/billing/ Play Billing for the one-time unlock
 data/ads/    The single banner
 ui/          Compose screens, the chart, and the design tokens of section 12
 widget/      The Glance widgets and the bitmap painter for rings and sparklines
-work/        The daily sync worker and the reminder alarm
+work/        The sync and refresh workers, and the reminder alarm
 ```
 
 ## The launcher icon
@@ -154,11 +154,27 @@ adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez unlock
 # has to fill them back in
 adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ez hcwrite true
 
-# Tell every placed widget it has been given a cell of this many dp, the way a
-# launcher does when its home-screen grid changes. A denser grid is otherwise
-# unreachable on an emulator whose launcher offers no such setting — this is a
-# 4x2 as a five-column, nine-row grid hands it:
-adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ei cellw 316 --ei cellh 156
+# Tell every placed widget it has been given a cell of this many dp. This writes
+# the widget's options bundle, which is exactly what a launcher that lies about
+# its grid does, so it reproduces the HyperOS fault rather than a denser grid.
+# The widgets should stay legible and keep filling their real cells; only the
+# pictures inside them are scaled by however much the report understates:
+adb shell am broadcast -a tech.idct.weighttracker.debug.SEED -n $CMP --ei cellw 250 --ei cellh 110
+
+# To see the widgets at a genuinely different grid, render them at explicit dp
+# cells instead. This writes a PNG per widget per cell to the app's external
+# files dir, with magenta showing anything the widget failed to cover:
+adb shell am instrument -w -e class   tech.idct.weighttracker.e2e.WidgetSizingTest   $PKG.test/androidx.test.runner.AndroidJUnitRunner
+
+# That renders one grid on one screen. e2e/widget_sizing.py runs the same test on
+# every connected device at several densities and text sizes, measures how much
+# magenta each cell left showing, and writes a contact sheet of the lot to
+# e2e/report/widget-sizing/index.html. Densities are the variable worth moving:
+# dp become pixels at the display's density, so it decides how large every bitmap
+# the widgets draw actually is. It puts each screen back the way it found it.
+python e2e/widget_sizing.py                # the whole matrix, building first
+python e2e/widget_sizing.py --skip-build   # reuse what is installed
+python e2e/widget_sizing.py emulator-5554  # one device
 
 # Seed with the daily reminder switched on. Seeding and clearing wipe the
 # settings (section 13), which turns the reminder off, and a reminder that is

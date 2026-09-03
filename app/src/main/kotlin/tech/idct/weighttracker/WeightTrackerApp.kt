@@ -11,8 +11,9 @@ import tech.idct.weighttracker.data.ads.Ads
 import tech.idct.weighttracker.data.repo.ThemePrefs
 import tech.idct.weighttracker.data.repo.WeightRepository
 import tech.idct.weighttracker.widget.WidgetUpdater
-import tech.idct.weighttracker.work.DailySyncWorker
 import tech.idct.weighttracker.work.DayChange
+import tech.idct.weighttracker.work.HealthSyncWorker
+import tech.idct.weighttracker.work.PlanRefreshWorker
 import tech.idct.weighttracker.work.Reminder
 
 class WeightTrackerApp : Application() {
@@ -33,10 +34,13 @@ class WeightTrackerApp : Application() {
             val settings = WeightRepository.get(this@WeightTrackerApp).settings()
             ThemePrefs.write(this@WeightTrackerApp, settings.theme)
             if (settings.backgroundSyncEnabled) {
-                DailySyncWorker.enable(this@WeightTrackerApp)
+                HealthSyncWorker.enable(this@WeightTrackerApp)
             } else {
-                DailySyncWorker.cancel(this@WeightTrackerApp)
+                HealthSyncWorker.cancel(this@WeightTrackerApp)
             }
+            // Needs no grant of any kind, so it is not behind a setting: what it
+            // refreshes is the app's own arithmetic against today's date.
+            PlanRefreshWorker.enable(this@WeightTrackerApp)
             Reminder.reschedule(this@WeightTrackerApp)
             DayChange.arm(this@WeightTrackerApp)
             WidgetUpdater.updateAll(this@WeightTrackerApp)

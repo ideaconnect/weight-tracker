@@ -3,6 +3,7 @@ package tech.idct.weighttracker.domain
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
@@ -20,23 +21,84 @@ object ChartScale {
     private val WEIGHT_STEPS = floatArrayOf(0.1f, 0.2f, 0.5f, 1f, 2f, 5f, 10f, 20f, 50f, 100f)
 
     /**
-     * Round-number ticks inside [lo, hi] — both in the display unit — using the
-     * finest step that yields at most [maxTicks] of them. Empty when the range is
-     * degenerate.
+     * A weight axis: where its bottom sits, and the weights to label going up from
+     * there. [lo] is always the first tick, so the lowest label lands ON the axis
+     * instead of floating above it.
      */
-    fun niceTicks(lo: Float, hi: Float, maxTicks: Int): List<Float> {
-        if (hi <= lo || maxTicks < 1) return emptyList()
-        for (step in WEIGHT_STEPS) {
-            // A hair of slack so a bound that is itself a round number keeps its tick.
-            val first = ceil(lo / step - 1e-3f).toInt()
-            val last = floor(hi / step + 1e-3f).toInt()
-            val count = last - first + 1
-            if (count <= maxTicks) {
-                return (first..last).map { i -> roundTo(i * step, step) }
-            }
+    class Axis(val lo: Float, val ticks: List<Float>)
+
+    /** Gridlines closer together than this are noise rather than a scale. */
+    private const val GRID_LIMIT = 12
+
+    /**
+     * The scale for a plot whose bottom edge is its axis.
+     *
+     * [niceTicks] finds round weights strictly inside the domain, which leaves the
+     * lowest of them hanging above the bottom of the plot by however much padding the
+     * domain happened to carry — a gridline a few pixels clear of the axis, which
+     * reads as a mistake.
+     *
+     * So the bottom is [lo] itself: the lowest weight the chart draws, which on a loss
+     * plan is the goal. Rounding the bottom down to a whole kilogram instead is what
+     * left the plan line landing above the X axis while the projection's dot, drawn on
+     * the axis by construction, sat correctly on it — the two marks are the same
+     * finish, and a chart that puts them on different lines is wrong about its own
+     * subject. A bottom that is already a round weight keeps the plain ladder it
+     * always had; one that is not is a label in its own right, with the round weights
+     * carrying the grid above it, and the first of those dropped when it would sit so
+     * close to the bottom label that the two read as a smudge.
+     *
+     * The step is chosen for tightness — 74.4 stays 74.4 rather than becoming 70 —
+     * and [maxTicks] only thins out which of those weights get printed.
+     */
+    fun axis(lo: Float, hi: Float, maxTicks: Int): Axis {
+        if (hi <= lo || maxTicks < 1) return Axis(lo, emptyList())
+        val step = WEIGHT_STEPS.firstOrNull { s ->
+            countFrom(floorTo(lo, s), hi, s) in 2..GRID_LIMIT
+        } ?: return Axis(lo, emptyList())
+        // The bottom is its own lowest label, so it carries the one decimal every
+        // weight in the app is printed to; never upwards, or the goal would fall off.
+        val bottom = roundTo(floorTo(lo, 0.1f), 0.1f)
+        val count = countFrom(floorTo(bottom, step), hi, step)
+        for (stride in 1..count) {
+            val ticks = ladder(bottom, hi, step, step * stride)
+            if (ticks.size <= maxTicks) return Axis(bottom, ticks)
         }
-        return emptyList()
+        return Axis(bottom, listOf(bottom))
     }
+
+    /**
+     * The labels for a bottom of [bottom] and a gridline every [grid]: the bottom
+     * first, then the round weights above it. Anchored on the bottom when the bottom
+     * is itself one of them, so an axis of whole kilograms stays whole kilograms.
+     */
+    private fun ladder(bottom: Float, hi: Float, step: Float, grid: Float): List<Float> {
+        val onGrid = abs(bottom / step - Math.round(bottom / step)) < 1e-3f
+        val ticks = ArrayList<Float>()
+        val first: Float
+        if (onGrid) {
+            first = bottom
+        } else {
+            ticks.add(bottom)
+            val above = ceilTo(bottom, grid)
+            first = if (above - bottom < grid * 0.5f) above + grid else above
+        }
+        var i = 0
+        while (first + i * grid <= hi + grid * 1e-3f) {
+            ticks.add(roundTo(first + i * grid, step))
+            i++
+        }
+        return ticks
+    }
+
+    private fun floorTo(value: Float, step: Float): Float =
+        floor(value / step + 1e-3f) * step
+
+    private fun ceilTo(value: Float, step: Float): Float =
+        ceil(value / step - 1e-3f) * step
+
+    private fun countFrom(bottom: Float, hi: Float, step: Float): Int =
+        floor((hi - bottom) / step + 1e-3f).toInt() + 1
 
     /** "84.0", the one decimal every weight in the app carries. */
     fun label(value: Float): String = String.format(Locale.US, "%.1f", value)

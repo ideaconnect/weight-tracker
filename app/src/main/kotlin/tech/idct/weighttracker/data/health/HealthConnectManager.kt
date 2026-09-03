@@ -3,6 +3,7 @@ package tech.idct.weighttracker.data.health
 import android.content.Context
 import android.os.Build
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
@@ -36,11 +37,37 @@ class HealthConnectManager(private val context: Context) {
         val BACKGROUND_PERMISSIONS = setOf(PERMISSION_READ_BACKGROUND)
 
         /**
-         * Section 2: background health reads need Android 15 (API 35) or the Health
-         * Connect APK equivalent, so the feature degrades gracefully below it.
+         * A first guess, for the frame before the real answer arrives. Android 15
+         * carries a Health Connect new enough to read in the background; what an
+         * Android 14 phone carries depends on a module update, which is exactly
+         * what [HealthConnectManager.backgroundReadSupported] goes and asks.
          */
-        val backgroundReadSupported: Boolean get() = Build.VERSION.SDK_INT >= 35
+        val backgroundReadLikely: Boolean get() = Build.VERSION.SDK_INT >= 35
     }
+
+    /**
+     * Section 2: whether this phone can read health data while the app is in the
+     * background — the gate on the whole of background sync, so getting it wrong
+     * costs the feature entirely.
+     *
+     * Asked of Health Connect rather than inferred from the SDK level. Background
+     * reads arrived in the Health Connect module, not in the platform: the version
+     * map in the Jetpack SDK puts the feature at API 34 with U extension 13, which
+     * an Android 14 phone gets from a module update and may well already have.
+     * `SDK_INT >= 35` therefore told a large class of phones the feature was
+     * impossible for them — the screen even said so in as many words — when their
+     * own Health Connect was ready to grant it. The SDK check survives only as the
+     * fallback for when the client cannot be reached at all.
+     */
+    val backgroundReadSupported: Boolean
+        get() {
+            val hc = client ?: return false
+            return runCatching {
+                hc.features.getFeatureStatus(
+                    HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND,
+                ) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
+            }.getOrDefault(backgroundReadLikely)
+        }
 
     val availability: Int get() = HealthConnectClient.getSdkStatus(context)
 

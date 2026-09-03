@@ -155,12 +155,15 @@ max_indexes = 5
 [auth]
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
-# in emails.
-site_url = "http://127.0.0.1:3000"
+# in emails. Nothing in this project sends a link that has to be tapped — every flow is a
+# six-digit code — but GoTrue builds {{ .ConfirmationURL }} out of this whatever the templates
+# say, and it was still the CLI's `supabase init` placeholder. Anyone reading the raw source of
+# an account email was looking at a link to localhost.
+site_url = "https://idct.tech/weight-tracker/"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+additional_redirect_urls = ["https://idct.tech/weight-tracker/"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -261,6 +264,27 @@ pass = "env(SMTP_PASS)"
 admin_email = "env(SMTP_ADMIN_EMAIL)"
 sender_name = "Weight Tracker"
 
+
+# The three emails the app actually sends, and all three carry a code rather than a
+# link. The app asks for six digits and calls /auth/v1/verify itself (SupabaseAuth),
+# so a link is not merely redundant, it is the wrong instruction: GoTrue's stock
+# templates print {{ .ConfirmationURL }} and nothing else, so the mail that arrived
+# for a new account held a link and no code at all, and the app sat waiting for one.
+#
+# e2e/verify_backend.py asks GoTrue to mint an OTP directly, which proves the code
+# exists but never looks at what was posted, so this went unnoticed until a real
+# sign-up. It now checks the rendered mail as well.
+[auth.email.template.confirmation]
+subject = "Your Weight Tracker code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Weight Tracker password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new Weight Tracker address"
+content_path = "./supabase/templates/email_change.html"
 
 # [auth.email.template.invite]
 # subject = "You have been invited"

@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -105,8 +106,12 @@ fun Sparkline(
     stats: PlanStats,
     modifier: Modifier = Modifier,
     withBand: Boolean = true,
-    /** Gridlines and labels, to match what the placed 4x2 and 4x4 widgets draw. */
-    axes: WidgetPainter.Axes? = null,
+    /**
+     * Axes, gridlines and labels, to match what the placed 4x2 and 4x4 widgets draw.
+     * There is no default: every chart in the app carries its scales, and the way that
+     * stops being true is a caller that quietly leaves them out.
+     */
+    axes: WidgetPainter.Axes,
 ) {
     val dark = WtTheme.colors == DarkWtColors
     val behind = WtTheme.behind
@@ -269,7 +274,7 @@ fun ChartWidgetPreview(
                 entries = entries,
                 stats = stats,
                 modifier = Modifier.fillMaxWidth().weight(1f),
-                axes = WidgetPainter.Axes(unit, textSp = 8.5f, maxTicks = 3, maxDates = 3),
+                axes = WidgetPainter.Axes(unit, 9.5f, WidgetPainter.mono(LocalContext.current)),
             )
         }
     }
@@ -310,7 +315,10 @@ fun BigWidgetPreview(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            Sparkline(entries, stats, Modifier.fillMaxWidth().height(120.dp), axes = WidgetPainter.Axes(unit, textSp = 9.5f))
+            Sparkline(
+                entries, stats, Modifier.fillMaxWidth().height(120.dp),
+                axes = WidgetPainter.Axes(unit, 9.5f, WidgetPainter.mono(LocalContext.current)),
+            )
             Format.kcalCompact(stats)?.let {
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -356,15 +364,23 @@ private fun StatCell(
     valueColor: Color = WtTheme.colors.onSurface,
 ) {
     val colors = WtTheme.colors
+    // The preview mirrors the widget's own tile, centred both ways.
     Column(
-        modifier = modifier.background(colors.surfaceAlt).padding(horizontal = 11.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier.background(colors.surfaceAlt).padding(horizontal = 6.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(label, style = TextStyle(fontSize = 10.sp), color = colors.muted)
+        Text(
+            label,
+            style = TextStyle(fontSize = 10.sp, textAlign = TextAlign.Center),
+            color = colors.muted,
+            maxLines = 1,
+        )
         Text(
             value,
-            style = TextStyle(fontSize = 13.5.sp, fontWeight = FontWeight.Medium),
+            style = TextStyle(fontSize = 13.5.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center),
             color = valueColor,
+            maxLines = 1,
         )
     }
 }

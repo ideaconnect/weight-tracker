@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -83,7 +84,6 @@ import tech.idct.weighttracker.ui.screens.LogSheet
 import tech.idct.weighttracker.ui.screens.NotificationPreview
 import tech.idct.weighttracker.ui.screens.OnboardingScreen
 import tech.idct.weighttracker.ui.screens.PaywallSheet
-import tech.idct.weighttracker.ui.screens.PlacementScreen
 import tech.idct.weighttracker.ui.screens.PlanEditScreen
 import tech.idct.weighttracker.ui.screens.PlanScreen
 import tech.idct.weighttracker.ui.screens.ReminderScreen
@@ -110,7 +110,6 @@ object Routes {
     const val ACCOUNT = "account"
     const val REMINDER = "reminder"
     const val WIDGETS = "widgets"
-    const val PLACEMENT = "placement"
 
     /** Section 7: the bottom bar shows on these destinations only. */
     val withBottomBar = setOf(HOME, HISTORY, PLAN, SETTINGS, WIDGETS)
@@ -220,23 +219,35 @@ fun WeightTrackerApp(
                 // Only a real hop is marked: arriving on the route already showing
                 // (a reminder tapped while Home is up) would leave the mark behind to
                 // swallow the next genuine navigation's overlay clear.
+                // Widgets carries the bottom bar, so an intent arrives at it the way
+                // the bar does — the same rule as Home below. Pushed instead, it
+                // landed on top of whatever happened to be showing: back from a
+                // widget's own tap went to Plan or Settings depending on where the
+                // app was last left, and the gallery reached from Settings and the
+                // gallery reached from a widget stopped being the same screen.
+                // The row in Settings still pushes: that is a drill-down, and back
+                // from it belongs on Settings.
                 tech.idct.weighttracker.MainActivity.ROUTE_PAYWALL -> {
                     routeFromIntent = Routes.WIDGETS.takeIf { it != currentRoute }
-                    navController.navigateSingle(Routes.WIDGETS)
+                    navController.navigateTab(Routes.WIDGETS)
                     viewModel.openOverlay(Overlay.Paywall)
                 }
 
-                tech.idct.weighttracker.MainActivity.ROUTE_PLACEMENT ->
-                    navController.navigateSingle(Routes.PLACEMENT)
+                tech.idct.weighttracker.MainActivity.ROUTE_WIDGETS ->
+                    navController.navigateTab(Routes.WIDGETS)
 
+                // Home is a tab, so an intent arrives at it the way the tab bar does.
+                // navigateSingle only ever pushes, which put a second Home on top of
+                // whatever was showing every time a widget or reminder was tapped from
+                // another screen, and the stack grew a layer per tap.
                 tech.idct.weighttracker.MainActivity.ROUTE_LOG -> {
                     routeFromIntent = Routes.HOME.takeIf { it != currentRoute }
-                    navController.navigateSingle(Routes.HOME)
+                    navController.navigateTab(Routes.HOME)
                     viewModel.openOverlay(Overlay.LogSheet)
                 }
 
                 tech.idct.weighttracker.MainActivity.ROUTE_HOME ->
-                    navController.navigateSingle(Routes.HOME)
+                    navController.navigateTab(Routes.HOME)
             }
             if (initialRoute != null) onRouteConsumed()
         }
@@ -463,22 +474,6 @@ fun WeightTrackerApp(
                                 state = state,
                                 onTapWidget = { viewModel.openOverlay(Overlay.WidgetInfo(it)) },
                                 onUnlock = { viewModel.openOverlay(Overlay.Paywall) },
-                                onPlacement = { navController.navigateSingle(Routes.PLACEMENT) },
-                            )
-                        }
-
-                        composable(Routes.PLACEMENT) {
-                            PlacementScreen(
-                                state = state,
-                                onBack = { navController.navigateSingle(Routes.HOME) },
-                                onWidgetList = { navController.navigateSingle(Routes.WIDGETS) },
-                                onAddToHomeScreen = { kind ->
-                                    val requested = WidgetUpdater.requestPin(context, kind)
-                                    viewModel.showToast(
-                                        if (requested) "Drop it where you'd like it"
-                                        else "Your launcher doesn't support adding widgets from apps"
-                                    )
-                                },
                             )
                         }
                     }
@@ -554,9 +549,12 @@ fun WeightTrackerApp(
                         unlocked = state.unlocked,
                         onPrimary = {
                             if (state.unlocked) {
-                                WidgetUpdater.requestPin(context, info.kind)
+                                if (!WidgetUpdater.requestPin(context, info.kind)) {
+                                    viewModel.showToast(
+                                        "Your launcher doesn't support adding widgets from apps"
+                                    )
+                                }
                                 viewModel.dismissOverlay()
-                                navController.navigateSingle(Routes.PLACEMENT)
                             } else {
                                 viewModel.openOverlay(Overlay.Paywall)
                             }
@@ -656,6 +654,13 @@ private fun BottomBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(66.dp)
+            // The tab bar reaches both edges of the screen, and on gesture navigation
+            // the outermost ~20 dp of each edge belongs to the system's back swipe.
+            // Home is the leftmost tab, so a tap that landed in that strip — or drifted
+            // a pixel sideways — was swallowed and came back as a back gesture: the
+            // button "did nothing" and the previous screen returned. Claiming the strip
+            // for the bar is what the exclusion API is for.
+            .systemGestureExclusion()
             .background(colors.background)
             .drawBehind {
                 drawLine(
@@ -741,17 +746,21 @@ private fun NavHostController.navigateSingle(route: String, clearFlow: Boolean =
 }
 
 /**
- * A bottom-bar destination. Tabs replace one another instead of stacking, so back from
- * any tab leaves the app rather than replaying the order the tabs were visited in.
+ * A bottom-bar destination — the four tabs, and Widgets when an intent asks for it,
+ * which is a bar-carrying screen reached from outside the app. Tabs replace one
+ * another instead of stacking, so back from any tab leaves the app rather than
+ * replaying the order the tabs were visited in.
+ *
+ * Deliberately without saveState/restoreState. The standard recipe pairs them so each
+ * tab keeps its own back stack, which is right for tabs that have one — and wrong
+ * here, where Widgets sits on top of Settings: popping to Home saved that pair, and
+ * the next tap on Settings restored it, so the Settings tab opened the Widgets screen
+ * instead. A tab goes to its own destination, every time it is pressed.
  */
 private fun NavHostController.navigateTab(route: String) {
     navigate(route) {
         launchSingleTop = true
-        restoreState = true
-        popUpTo(graph.findStartDestination().id) {
-            saveState = true
-            inclusive = false
-        }
+        popUpTo(graph.findStartDestination().id) { inclusive = false }
     }
 }
 

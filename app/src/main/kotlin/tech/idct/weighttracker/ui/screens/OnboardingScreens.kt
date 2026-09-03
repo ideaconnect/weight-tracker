@@ -266,7 +266,7 @@ fun HealthConnectScreen(
 
 /**
  * Section 7 Background sync: the third onboarding step. States the two things
- * Android needs, promises one check a day and nothing else, and offers an
+ * Android needs, promises a half-hourly check and nothing else, and offers an
  * equal-weight decline that keeps sync-on-open.
  */
 @Composable
@@ -337,7 +337,7 @@ fun BackgroundSyncScreen(
                         color = colors.onSurface,
                     )
                     Text(
-                        "So the once-a-day check is not postponed by the system",
+                        "So the half-hourly check is not postponed by the system",
                         style = TextStyle(fontSize = 12.sp, lineHeight = 17.sp),
                         color = colors.muted,
                     )
@@ -345,7 +345,7 @@ fun BackgroundSyncScreen(
             }
             WtCard(background = colors.surfaceAlt, radius = WtDimens.rowRadius, contentPadding = 15.dp) {
                 Text(
-                    "One check a day, nothing else",
+                    "A check every half hour, nothing else",
                     style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium),
                     color = colors.onSurface,
                 )
@@ -366,7 +366,8 @@ fun BackgroundSyncScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "It needs Android 15 or newer. Sync on open works exactly as before.",
+                        "This phone's Health Connect is too old for it, and updating Health Connect " +
+                            "may be all it takes. Sync on open works exactly as before.",
                         style = TextStyle(fontSize = 12.5.sp, lineHeight = 19.sp),
                         color = colors.muted,
                     )

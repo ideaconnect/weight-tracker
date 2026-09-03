@@ -26,8 +26,10 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
@@ -45,100 +47,119 @@ import tech.idct.weighttracker.domain.Units
 import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 private val isoShort: DateTimeFormatter = DateTimeFormatter.ofPattern("MM-dd")
 
 /**
- * The inset [BaseWeightWidget] gives every widget's content.
- *
- * The prototype draws with a 14 dp inset, which is right for a cell of the prototype's
- * size and wrong for a smaller one: a nine-row grid hands a 4x1 about 70 dp of height,
- * and a constant 28 dp of that goes before anything is drawn. Both saturate at the
- * prototype's figure, so a cell of the size the repo's screenshots were taken at keeps
- * exactly the inset it had and only a smaller one gets its space back.
+ * The inset [BaseWeightWidget] gives every widget's content: the prototype's figure,
+ * kept until the cell is genuinely too small to spare it. A lock-screen strip declares
+ * itself 40 dp tall, and a constant inset was spending nearly a third of that before
+ * anything was drawn.
  */
-internal fun padH(widthDp: Float) = (widthDp * 0.09f).coerceIn(6f, 14f)
+internal fun padH(widthDp: Float) = (widthDp * 0.06f).coerceIn(6f, 14f)
 
-internal fun padV(heightDp: Float) = (heightDp * 0.14f).coerceIn(4f, 14f)
+internal fun padV(heightDp: Float) = (heightDp * 0.09f).coerceIn(4f, 12f)
+
+/**
+ * What a row of Glance text loses to Glance itself.
+ *
+ * Every [androidx.glance.text.Text] becomes a TextView inside wrappers of Glance's
+ * own, and a column measured as "the cell, less the picture, less the spacer" comes
+ * out a few dp narrower than that on the device. Measured off the rendered pixels of
+ * a 186x106 dp strip, where the arithmetic said 84.6 dp and the TextView was given
+ * 80.9. Reserving it is cheaper than an ellipsis.
+ */
+internal const val GLANCE_TEXT_SLACK = 6f
 
 /** §12's widget surface, held at the prototype's 24 dp until the cell is too small for it. */
 private fun corner(widthDp: Float, heightDp: Float) =
     (minOf(widthDp, heightDp) * 0.30f).coerceIn(10f, 24f)
 
-/** Type below this is noticed rather than read; §12 drops a line before printing one smaller. */
-private const val MIN_TEXT_SP = 9f
-
 /**
- * The space a widget was actually given, and how that compares with the box the
- * prototype drew it in.
+ * The space a widget was given — as far as anyone can tell.
  *
- * The prototype sizes the 4x2s at 110 dp tall and the 2x2 at 168 dp square. A real
- * launcher cell is routinely half as tall again, or twice — on the test device a 4x2
- * lands at roughly 386x213 dp — so the design has to grow into it. It also has to
- * shrink. A five-column, nine-row grid hands the same span a little over half the
- * height and four fifths of the width, and the first model could not: its scale was
- * floored at the design size and read height alone, so a cell smaller than the
- * prototype got the prototype drawn at full size and the launcher clipped whatever
- * overflowed. That is how "the widget is the right size but everything on it is
- * small" happened — the 4x2 chart lost its date axis, the 2x2's ring lost its top
- * and bottom, and at the very sizes the two lock-screen widgets declare as their
- * minimum the type was cut through the middle.
+ * The figure a launcher reports is a floor, not a measurement. HyperOS never revises
+ * the size it first wrote into a widget's options, so a 4x2 that really occupies
+ * 274x137 dp goes on describing itself as the 250x110 dp its provider declares as a
+ * minimum, and a 2x2 says 110x110 whatever cell it is dropped into. The first design
+ * read that figure both ways — it would scale the layout down as readily as up — so on
+ * that launcher a 4x2 rendered at a fraction of its cell: small faint type, a chart
+ * using half its tile, a margin at each end. Every one of those is the same bug.
  *
- * So the fit is symmetric and two-dimensional, and nothing is floored at the design
- * size. The damping that stops type ballooning on a large cell applies only above 1:
- * a cell smaller than the design has no slack to give away, so below 1 type tracks
- * the cell one for one. And because type grows by 1 + (scale - 1) * 0.6, the width
- * limit inverts exactly that law rather than guessing at headroom — [designWidthDp]
- * is the width the layout needs at scale 1.
+ * Two rules follow, and between them they hold the design steady at any grid.
+ *
+ * The first: [scale] never goes below 1. Every widget's design fits inside the cell it
+ * declares as its minimum, and the reported figure can only understate the cell, so a
+ * report can never be a reason to draw the design smaller than it is. It is still a
+ * reason to draw it bigger, which is what a launcher that reports honestly gets.
+ *
+ * The second: filling the cell is the layout's job, not arithmetic's. The parts with
+ * give — the chart, the ring, the progress bar, the slack around it — are Glance
+ * weights and stretched pictures, which the launcher resolves against the space it
+ * really laid out rather than the space it admitted to.
  */
 internal class Cell(
     widthDp: Float,
     heightDp: Float,
     designWidthDp: Float,
     designHeightDp: Float,
-    /** [text] returns sp and every budget here is dp, so the host's setting has to be known. */
+    /** Type is asked for in sp and every budget here is dp, so the host's setting matters. */
     private val fontScale: Float,
+    /** A lock-screen strip has no business growing into headlines. */
+    maxScale: Float = 2.2f,
 ) {
     val width = (widthDp - padH(widthDp) * 2f).coerceAtLeast(1f)
     val height = (heightDp - padV(heightDp) * 2f).coerceAtLeast(1f)
 
+    /**
+     * How much bigger than the design this cell is. Because type grows by
+     * 1 + (scale - 1) * 0.6, the width limit inverts exactly that law rather than
+     * guessing at headroom — [designWidthDp] is the width the layout needs at 1.
+     */
     val scale = run {
         val r = width / designWidthDp
-        val widthLimit = if (r >= 1f) 1f + (r - 1f) / 0.6f else r
-        minOf(height / designHeightDp, widthLimit).coerceIn(0.55f, 2.2f)
+        val widthLimit = 1f + (r - 1f) / 0.6f
+        minOf(height / designHeightDp, widthLimit).coerceIn(1f, maxScale)
     }
 
-    /** Type grows more slowly than the box, and shrinks with it down to [MIN_TEXT_SP]. */
-    fun text(base: Float): Float {
-        val factor = if (scale >= 1f) 1f + (scale - 1f) * 0.6f else scale
-        return (base * factor).coerceAtLeast(minOf(base, MIN_TEXT_SP))
-    }
-
-    /** Gaps track the box in both directions. */
-    fun space(base: Float) = (base * scale).coerceAtLeast(1f)
-
-    /** Bars and strokes sit between the two, and stay visible. */
-    fun stroke(base: Float): Float {
-        val factor = if (scale >= 1f) 1f + (scale - 1f) * 0.5f else scale
-        return (base * factor).coerceAtLeast(minOf(base, 2f))
-    }
+    /** Type grows more slowly than the box, so a large cell is not all numerals. */
+    fun text(base: Float) = base * (1f + (scale - 1f) * 0.6f)
 
     /**
-     * The dp a line of [sp] type occupies, [factor] being the line box the caller
-     * already used. sp are multiplied by the reader's text-size setting before they
-     * are laid out while every budget here is dp, so a column measured in bare sp
-     * overruns by exactly that factor — the same clipping the dense grid produced,
-     * arriving by a different door. At the default setting this returns what the old
-     * arithmetic did.
+     * Axis figures do not scale at all. The home screen sets its scales at a flat
+     * 9.5 sp however big the chart is, and a widget's chart is already the smaller
+     * of the two, so type that tracked the box made its scales three times the
+     * weight of the same scales in the app — which is most of what made them look
+     * like different products. Holding them still also leaves the plot the room to
+     * carry as many figures as the app's does.
+     */
+    fun axis(base: Float) = base
+
+    /** Gaps track the box. */
+    fun space(base: Float) = base * scale
+
+    /** Bars and strokes sit between the two. */
+    fun stroke(base: Float) = base * (1f + (scale - 1f) * 0.5f)
+
+    /**
+     * The dp a line of [sp] type occupies, [factor] being its line box. sp are
+     * multiplied by the reader's text-size setting before they are laid out while
+     * every budget here is dp, so a column measured in bare sp overruns by exactly
+     * that factor.
      */
     fun lineH(sp: Float, factor: Float = 1.35f) = sp * factor * fontScale
 
-    /** Type sized to fit a dp box — a ring's caption — has to be asked for in sp. */
-    fun spFromDp(dp: Float) = dp / fontScale
+    /**
+     * The one concession to a cell that cannot hold the design after all — a host
+     * that reports less than the provider's own minimum, which the lock screen does.
+     * Everything shrinks together rather than the bottom row falling off the edge.
+     */
+    fun squeeze(needed: Float) = (height / needed).coerceIn(0.6f, 1f)
 }
 
 @Composable
-private fun cell(designWidthDp: Float, designHeightDp: Float): Cell {
+private fun cell(designWidthDp: Float, designHeightDp: Float, maxScale: Float = 2.2f): Cell {
     val size = LocalSize.current
     return Cell(
         size.width.value,
@@ -146,7 +167,36 @@ private fun cell(designWidthDp: Float, designHeightDp: Float): Cell {
         designWidthDp,
         designHeightDp,
         LocalContext.current.resources.configuration.fontScale,
+        maxScale,
     )
+}
+
+/**
+ * A bitmap's pixel size: the box it will be drawn into, at the screen's own density,
+ * so an ImageView has nothing left to scale. The callers make that exact rather than
+ * approximate by fixing the height of every row around the picture, so the weight the
+ * picture takes is the height it was drawn for.
+ */
+private class Render(widthDp: Float, heightDp: Float, density: Float) {
+    val scale: Float
+    val width: Int
+    val height: Int
+
+    init {
+        val w = widthDp * density
+        val h = heightDp * density
+        // A widget's RemoteViews travel over an IPC transaction. Above this a picture
+        // is drawn smaller and scaled up, which is softer than it should be but still
+        // a great deal better than not arriving.
+        val k = if (w * h > BUDGET_PX) sqrt(BUDGET_PX / (w * h)) else 1f
+        scale = density * k
+        width = (widthDp * scale).roundToInt().coerceAtLeast(1)
+        height = (heightDp * scale).roundToInt().coerceAtLeast(1)
+    }
+
+    companion object {
+        private const val BUDGET_PX = 600_000f
+    }
 }
 
 /** Route the launcher tap: unlocked widgets open the app, locked ones the paywall. */
@@ -164,6 +214,26 @@ private fun launchIntent(context: Context, locked: Boolean): Intent =
  */
 abstract class BaseWeightWidget : GlanceAppWidget() {
 
+    /**
+     * Exact, and not Responsive, though Responsive is the obvious answer to the
+     * launcher in [Cell]'s note: it ships a layout per declared rung and lets the host
+     * pick by the bounds it measured itself, so a launcher that lies about the cell
+     * cannot mislead it. It was tried, and it made every device worse.
+     *
+     * The host picks the largest declared rung that fits inside the real cell, and a
+     * rung is never the cell: a 4x2 at 386x213 dp composes for the 330x160 rung, so
+     * the chart is drawn for a box two thirds the height of the one it is put in and
+     * the ImageView stretches the difference. Stretched gridlines are nothing, but
+     * stretched figures are the axis labels reading as though they were squeezed. That
+     * was on every device, in exchange for a launcher-specific fault on one.
+     *
+     * Exact reports the true cell wherever the launcher is honest — which is the case
+     * that has to be right — so the pictures are drawn at exactly the size they are
+     * put in, and nothing is scaled at all. Where the launcher is not honest, the
+     * report is a floor: [Cell.scale] never reads it downwards, the layout still fills
+     * the real cell because it fills with weights, and only the pictures inside it are
+     * scaled up by however much the launcher understated.
+     */
     override val sizeMode: SizeMode = SizeMode.Exact
 
     @Composable
@@ -248,33 +318,28 @@ private fun NoPlanState(palette: WidgetPalette) {
     }
 }
 
+/**
+ * The progress bar, as a picture. It is a bitmap rather than a box inside a box
+ * because Glance has no fractional width, and the dp arithmetic that stood in for one
+ * was measured against a cell width the launcher may have understated.
+ */
 @Composable
-private fun ProgressTrack(progress: Float, palette: WidgetPalette, height: Int = 8) {
-    Box(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .height(height.dp)
-            .cornerRadius((height / 2).dp)
-            .background(Color(palette.surfaceAlt)),
-    ) {
-        // Glance has no fractional width, so the fill is an explicitly sized child.
-        // It must be measured against the TRACK, which sits inside the root Box's
-        // padding and is therefore two paddings narrower than the widget itself —
-        // measuring against the full width overstates progress and saturates the
-        // bar at around 90%.
-        val widgetW = LocalSize.current.width.value
-        val trackDp = (widgetW - padH(widgetW) * 2f).coerceAtLeast(0f)
-        val fillDp = trackDp * progress.coerceIn(0f, 1f)
-        if (fillDp > 0.5f) {
-            Box(
-                modifier = GlanceModifier
-                    .width(fillDp.dp)
-                    .height(height.dp)
-                    .cornerRadius((height / 2).dp)
-                    .background(Color(palette.accent))
-            ) {}
-        }
-    }
+private fun ProgressTrack(
+    progress: Float,
+    palette: WidgetPalette,
+    widthDp: Float,
+    heightDp: Float,
+    density: Float,
+) {
+    val render = Render(widthDp, heightDp.coerceAtLeast(3f), density)
+    Image(
+        provider = ImageProvider(
+            WidgetPainter.track(render.width, render.height, progress, palette)
+        ),
+        contentDescription = null,
+        modifier = GlanceModifier.fillMaxWidth().height(heightDp.dp),
+        contentScale = ContentScale.FillBounds,
+    )
 }
 
 @Composable
@@ -282,18 +347,34 @@ private fun StatTile(
     label: String,
     value: String,
     palette: WidgetPalette,
-    labelSp: Float = 10f,
-    valueSp: Float = 13f,
-    padV: Float = 10f,
+    labelSp: Float,
+    valueSp: Float,
+    padV: Float,
     valueColor: Int = palette.onSurface,
 ) {
+    // Centred both ways. Three tiles side by side are read as a row of three
+    // figures, not as three paragraphs: ragged left edges under a centred chart
+    // made the widget look assembled rather than laid out, and the tile is taller
+    // than its two lines, so top-aligning them left the spare height under the
+    // figures instead of split evenly around them.
     Column(
         modifier = GlanceModifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .background(Color(palette.surfaceAlt))
-            .padding(horizontal = 11.dp, vertical = padV.dp)
+            .padding(horizontal = 6.dp, vertical = padV.dp),
+        verticalAlignment = Alignment.Vertical.CenterVertically,
+        horizontalAlignment = Alignment.Horizontal.CenterHorizontally,
     ) {
-        Text(label, style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = labelSp.sp))
+        Text(
+            label,
+            style = TextStyle(
+                color = ColorProvider(Color(palette.muted)),
+                fontSize = labelSp.sp,
+                textAlign = TextAlign.Center,
+            ),
+            maxLines = 1,
+            modifier = GlanceModifier.fillMaxWidth(),
+        )
         Spacer(GlanceModifier.height(2.dp))
         Text(
             value,
@@ -301,7 +382,10 @@ private fun StatTile(
                 color = ColorProvider(Color(valueColor)),
                 fontSize = valueSp.sp,
                 fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
             ),
+            maxLines = 1,
+            modifier = GlanceModifier.fillMaxWidth(),
         )
     }
 }
@@ -318,76 +402,63 @@ class RingWidget : BaseWeightWidget() {
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
         val density = LocalContext.current.resources.displayMetrics.density
-        val c = cell(designWidthDp = 96f, designHeightDp = 140f)
+        val c = cell(designWidthDp = 96f, designHeightDp = 104f)
 
         val labelSp = c.text(12f)
         val kcalSp = c.text(10.5f)
-        val gap = c.space(8f)
+        val gap = c.space(6f)
         // Both lines under the ring are optional, and they go in that order: §12 would
-        // rather drop a label than shrink the ring it sits under to nothing. The ring
-        // then takes the remainder — never a floor above it, which is what used to
-        // draw a 56 dp ring into a 24 dp gap and lose its top and bottom to the clip.
+        // rather drop a label than leave the ring no room. What is left is the ring's,
+        // and it takes it as a weight, so a cell larger than the one reported gives the
+        // ring the difference instead of leaving a hole.
         val labelH = c.lineH(labelSp, 1.5f)
         val kcalH = c.lineH(kcalSp, 1.5f)
-        val kcal = kcalLabel(stats)?.takeIf { c.height - labelH - kcalH - gap >= 44f }
-        val label = c.height - labelH - gap >= 30f
+        val kcal = kcalLabel(stats)?.takeIf { c.height - labelH - kcalH - gap >= c.space(40f) }
+        val label = c.height - labelH - gap >= c.space(28f)
         val labelsH = (if (label) labelH else 0f) + (if (kcal != null) kcalH else 0f)
-        val diameter = minOf(c.width, c.height - labelsH - (if (labelsH > 0f) gap else 0f))
-            .coerceIn(20f, 260f)
-        val stroke = diameter * 0.079f
-        // The caption is sized to fit inside the ring, so it is a dp quantity; below
-        // this the ring is too small to hold a second line at all.
-        val innerCaption = diameter >= 84f
+        val ringBox = (c.height - labelsH - (if (labelsH > 0f) gap else 0f)).coerceAtLeast(16f)
+        val render = Render(minOf(c.width, ringBox), minOf(c.width, ringBox), density)
 
         Column(
             modifier = GlanceModifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Box(
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
+                contentAlignment = Alignment.Center,
+            ) {
                 Image(
                     provider = ImageProvider(
                         WidgetPainter.ring(
-                            (diameter * density).roundToInt(),
-                            stroke * density,
-                            stats.progress,
-                            palette,
+                            sizePx = minOf(render.width, render.height),
+                            progress = stats.progress,
+                            palette = palette,
+                            label = pctLabel(stats),
+                            caption = "of plan",
+                            density = render.scale,
                         )
                     ),
                     contentDescription = null,
-                    modifier = GlanceModifier.size(diameter.dp),
+                    modifier = GlanceModifier.fillMaxSize(),
+                    // Square and centred: the ring keeps its circle and its figures
+                    // keep their proportion to it at whatever size the cell gives.
+                    contentScale = ContentScale.Fit,
                 )
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        pctLabel(stats),
-                        style = TextStyle(
-                            color = ColorProvider(Color(palette.onSurface)),
-                            fontSize = c.spFromDp(diameter * 0.215f).sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                    )
-                    if (innerCaption) {
-                        Text(
-                            "of plan",
-                            style = TextStyle(
-                                color = ColorProvider(Color(palette.muted)),
-                                fontSize = c.spFromDp(diameter * 0.102f).sp,
-                            ),
-                        )
-                    }
-                }
             }
             if (label) {
                 Spacer(GlanceModifier.height(gap.dp))
                 Text(
                     remainingLabel(stats, data),
                     style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = labelSp.sp),
+                    maxLines = 1,
                 )
             }
             if (kcal != null) {
                 Text(
                     kcal,
                     style = TextStyle(color = ColorProvider(Color(palette.muted)), fontSize = kcalSp.sp),
+                    maxLines = 1,
                 )
             }
         }
@@ -404,31 +475,50 @@ class BarWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
+        val context = LocalContext.current
+        val density = context.resources.displayMetrics.density
         val c = cell(designWidthDp = 190f, designHeightDp = 78f)
-        val gap = c.space(11f)
+
+        val headerSp = c.text(24f)
+        val unitSp = c.text(12f)
+        val pctSp = c.text(12.5f)
+        val footerSp = c.text(11f)
+        val gap = c.space(10f)
+        // The bar takes a share of a tall cell's slack, up to double its own weight, so
+        // the row it sits in reads as part of the design rather than as a line adrift
+        // in the middle of it.
+        val slack = c.height - c.lineH(headerSp) - c.lineH(footerSp)
+        val trackH = c.stroke(8f) + (slack * 0.06f).coerceIn(0f, c.stroke(8f))
+
+        val needed = c.lineH(headerSp) + gap * 2f + trackH + c.lineH(footerSp)
+        val k = c.squeeze(needed)
 
         // The header carries the energy figure only when the row can hold weight,
-        // unit, kcal and percent together. 190dp covers the widest realistic
-        // strings at base type, and c.text scales that budget exactly as the fonts
-        // scale; a narrow 4x2 (a five-column grid hands one ~255dp) keeps the
-        // original three-item header instead of wrapping it.
-        val kcal = kcalLabel(stats)?.takeIf { c.width >= c.text(190f) }
+        // unit, kcal and percent with a gap left between them — measured, because a
+        // dp budget cannot see the reader's text setting. The budget this replaces
+        // was `c.width >= c.text(190f)`, which is degenerate whenever the width is
+        // what limits the scale: c.text(190f) inverts back to exactly c.width, so it
+        // answered yes at the very size that had nothing to spare. At 1.3x the three
+        // labels ran together into one word.
+        val kcal = kcalLabel(stats)?.takeIf { label ->
+            val ink = WidgetPainter.textWidthDp(
+                context, Units.format(stats.currentKg, data.unit), headerSp * k, medium = true,
+            ) +
+                WidgetPainter.textWidthDp(context, data.unit.label, unitSp * k) +
+                WidgetPainter.textWidthDp(context, label, footerSp * k) +
+                WidgetPainter.textWidthDp(context, pctLabel(stats), pctSp * k, medium = true)
+            // 6 dp is the fixed spacer after the weight; the other two gaps have to be
+            // wide enough to read as gaps, which is what the eye is judging. They are
+            // asked for at c.space(6f) rather than at the width of the gaps a roomy
+            // cell ends up with: the question is whether three labels can sit apart,
+            // not whether they can sit as far apart as they do at 316x280.
+            c.width - GLANCE_TEXT_SLACK - ink >= 6f + c.space(6f) * 2f
+        }
 
-        // A column of fixed rows has nothing to absorb slack, so when the rows total
-        // more than the cell it simply runs past the bottom edge. One squeeze factor
-        // over all of them keeps the proportions and fits; where the column already
-        // fits — every cell the repo's screenshots were taken at — k is 1 and nothing
-        // moves.
-        val headerSp = c.text(24f)
-        val footerSp = c.text(11f)
-        val trackH = c.stroke(8f)
-        val needed = c.lineH(headerSp) + gap * 2f + trackH + c.lineH(footerSp)
-        val k = (c.height / needed).coerceAtMost(1f)
-
-        Column(
-            modifier = GlanceModifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        // Header at the top, footer at the bottom, bar between them: the slack goes
+        // into the gaps rather than into a margin at each end, so the design fills the
+        // cell however tall the cell turns out to be.
+        Column(modifier = GlanceModifier.fillMaxSize()) {
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
                 Text(
                     Units.format(stats.currentKg, data.unit),
@@ -443,7 +533,7 @@ class BarWidget : BaseWeightWidget() {
                     data.unit.label,
                     style = TextStyle(
                         color = ColorProvider(Color(palette.muted)),
-                        fontSize = (c.text(12f) * k).sp,
+                        fontSize = (unitSp * k).sp,
                     ),
                 )
                 Spacer(GlanceModifier.defaultWeight())
@@ -462,13 +552,15 @@ class BarWidget : BaseWeightWidget() {
                     pctLabel(stats),
                     style = TextStyle(
                         color = ColorProvider(Color(palette.accent)),
-                        fontSize = (c.text(12.5f) * k).sp,
+                        fontSize = (pctSp * k).sp,
                         fontWeight = FontWeight.Medium,
                     ),
                 )
             }
             Spacer(GlanceModifier.height((gap * k).dp))
-            ProgressTrack(stats.progress, palette, height = (trackH * k).roundToInt().coerceAtLeast(4))
+            Spacer(GlanceModifier.defaultWeight())
+            ProgressTrack(stats.progress, palette, c.width, trackH * k, density)
+            Spacer(GlanceModifier.defaultWeight())
             Spacer(GlanceModifier.height((gap * k).dp))
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 Text(
@@ -477,6 +569,7 @@ class BarWidget : BaseWeightWidget() {
                         color = ColorProvider(Color(palette.muted)),
                         fontSize = (footerSp * k).sp,
                     ),
+                    maxLines = 1,
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
@@ -485,6 +578,7 @@ class BarWidget : BaseWeightWidget() {
                         color = ColorProvider(Color(palette.muted)),
                         fontSize = (footerSp * k).sp,
                     ),
+                    maxLines = 1,
                 )
                 Spacer(GlanceModifier.defaultWeight())
                 Text(
@@ -493,6 +587,7 @@ class BarWidget : BaseWeightWidget() {
                         color = ColorProvider(Color(palette.muted)),
                         fontSize = (footerSp * k).sp,
                     ),
+                    maxLines = 1,
                 )
             }
         }
@@ -509,170 +604,122 @@ class ChartWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val density = LocalContext.current.resources.displayMetrics.density
+        val context = LocalContext.current
+        val density = context.resources.displayMetrics.density
         val c = cell(designWidthDp = 175f, designHeightDp = 86f)
 
         val bigSp = c.text(20f)
         val smallSp = c.text(11f)
         val gap = c.space(8f)
 
-        // The prototype puts the figures beside a wide, shallow sparkline, which suits
-        // its 250x110 box. A launcher 4x2 is far taller in proportion, so on a tall cell
-        // the figures move above the chart and the chart takes the whole width — that
-        // fills the cell AND keeps the shallow band. A short, wide cell keeps the
-        // original side-by-side arrangement.
-        val stacked = c.height > c.width * 0.4f
-
+        // Both figures sit in the header, so everything below it belongs to the chart:
+        // one arrangement at every size, and the whole width for the plot. The right
+        // column is two or three small lines tall, so the header is measured as
+        // whichever side is taller. The energy line is the one that goes first, when
+        // keeping it would leave the plot no room for its own axis.
         val kcal = kcalLabel(stats)
+        fun headerFor(lines: Int) = maxOf(c.lineH(bigSp), c.lineH(smallSp) * lines)
+        // 60 dp is what a plot needs to be a plot; it does not grow with the design,
+        // or a cell big enough to hold the line comfortably would drop it for being
+        // comfortable.
+        val headerKcal = kcal?.takeIf { c.height - headerFor(3) - gap >= 60f }
+        val headerH = headerFor(if (headerKcal != null) 3 else 2)
+        val chartH = (c.height - headerH - gap).coerceAtLeast(24f)
+        val render = Render(c.width, chartH, density)
 
-        if (stacked) {
-            // Both figures sit in the header, so the whole area below belongs to the
-            // chart. A separate footer row plus the axis date strip left the plot
-            // barely 50 dp tall and flattened the line.
-            // The right column is two or three small lines tall; the header must be
-            // measured as whichever side is taller, or the chart under it overflows.
-            // The energy line is the one that goes first: floored at 72 dp the plot
-            // pushed itself and its date axis off the bottom of a dense grid's cell,
-            // where dropping one line of the header leaves room for the whole chart.
-            fun headerFor(lines: Int) = maxOf(c.lineH(bigSp), c.lineH(smallSp) * lines)
-            val headerKcal = kcal?.takeIf { c.height - headerFor(3) - gap >= 72f }
-            val headerH = headerFor(if (headerKcal != null) 3 else 2)
-            val chartH = (c.height - headerH - gap).coerceAtLeast(24f)
-            Column(modifier = GlanceModifier.fillMaxSize()) {
-                Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        Units.format(stats.currentKg, data.unit),
-                        style = TextStyle(
-                            color = ColorProvider(Color(palette.onSurface)),
-                            fontSize = bigSp.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                    )
-                    Spacer(GlanceModifier.width(6.dp))
-                    Text(
-                        data.unit.label,
-                        style = TextStyle(
-                            color = ColorProvider(Color(palette.muted)),
-                            fontSize = smallSp.sp,
-                        ),
-                    )
-                    Spacer(GlanceModifier.defaultWeight())
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            weekChangeLabel(stats, data) + " / 7d",
-                            style = TextStyle(
-                                color = ColorProvider(Color(palette.accent)),
-                                fontSize = smallSp.sp,
-                                fontWeight = FontWeight.Medium,
-                            ),
-                        )
-                        Text(
-                            Units.format(stats.targetKg, data.unit) + " goal",
-                            style = TextStyle(
-                                color = ColorProvider(Color(palette.muted)),
-                                fontSize = smallSp.sp,
-                            ),
-                        )
-                        if (headerKcal != null) {
-                            Text(
-                                headerKcal,
-                                style = TextStyle(
-                                    color = ColorProvider(Color(palette.muted)),
-                                    fontSize = smallSp.sp,
-                                ),
-                            )
-                        }
-                    }
-                }
-                Spacer(GlanceModifier.height(gap.dp))
-                Image(
-                    provider = ImageProvider(
-                        WidgetPainter.sparkline(
-                            widthPx = (c.width * density).roundToInt(),
-                            heightPx = (chartH * density).roundToInt(),
-                            entries = data.entries,
-                            stats = stats,
-                            palette = palette,
-                            density = density,
-                            // Fewer ticks than the 4x4, but a line with no scale beside
-                            // it is just a squiggle.
-                            axes = WidgetPainter.Axes(
-                                data.unit,
-                                textSp = c.text(8.5f),
-                                maxTicks = 3,
-                                maxDates = 3,
-                            ),
-                        )
+        Column(modifier = GlanceModifier.fillMaxSize()) {
+            // The header's height is imposed rather than measured, so that what is left
+            // for the chart is exactly [chartH] — the size its picture was drawn at. Left
+            // to wrap, the row comes out a few dp under the estimate and the ImageView
+            // stretches the picture by the difference, which is only ever visible in the
+            // axis figures. [headerH] is the taller of the two sides, so nothing clips.
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().height(headerH.dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
+                Text(
+                    Units.format(stats.currentKg, data.unit),
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.onSurface)),
+                        fontSize = bigSp.sp,
+                        fontWeight = FontWeight.Medium,
                     ),
-                    contentDescription = null,
-                    modifier = GlanceModifier.fillMaxWidth().height(chartH.dp),
                 )
-            }
-        } else {
-            val figuresW = (c.width * 0.3f).coerceIn(96f, 160f)
-            val chartW = (c.width - figuresW - gap).coerceAtLeast(72f)
-            val chartH = c.height.coerceAtMost(chartW / 1.9f)
-            // This branch serves the shortest cells, so a fourth line joins the
-            // figures column only when all four actually fit the height.
-            val kcalLine = kcal?.takeIf {
-                c.height >= c.lineH(bigSp) + c.lineH(smallSp) + c.lineH(c.text(10.5f)) * 2f + 12f
-            }
-            Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    provider = ImageProvider(
-                        WidgetPainter.sparkline(
-                            widthPx = (chartW * density).roundToInt(),
-                            heightPx = (chartH * density).roundToInt(),
-                            entries = data.entries,
-                            stats = stats,
-                            palette = palette,
-                            density = density,
-                            axes = if (chartW >= 150f && chartH >= 60f) {
-                                WidgetPainter.Axes(data.unit, textSp = c.text(8.5f), maxTicks = 3, maxDates = 2)
-                            } else null,
-                        )
+                Spacer(GlanceModifier.width(6.dp))
+                Text(
+                    data.unit.label,
+                    style = TextStyle(
+                        color = ColorProvider(Color(palette.muted)),
+                        fontSize = smallSp.sp,
                     ),
-                    contentDescription = null,
-                    modifier = GlanceModifier.width(chartW.dp).height(chartH.dp),
                 )
-                Spacer(GlanceModifier.width(gap.dp))
+                Spacer(GlanceModifier.defaultWeight())
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        Units.format(stats.currentKg, data.unit),
-                        style = TextStyle(
-                            color = ColorProvider(Color(palette.onSurface)),
-                            fontSize = bigSp.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                    )
-                    Spacer(GlanceModifier.height(2.dp))
                     Text(
                         weekChangeLabel(stats, data) + " / 7d",
                         style = TextStyle(
                             color = ColorProvider(Color(palette.accent)),
                             fontSize = smallSp.sp,
+                            fontWeight = FontWeight.Medium,
                         ),
+                        maxLines = 1,
                     )
-                    Spacer(GlanceModifier.height(2.dp))
                     Text(
                         Units.format(stats.targetKg, data.unit) + " goal",
                         style = TextStyle(
                             color = ColorProvider(Color(palette.muted)),
-                            fontSize = c.text(10.5f).sp,
+                            fontSize = smallSp.sp,
                         ),
+                        maxLines = 1,
                     )
-                    if (kcalLine != null) {
-                        Spacer(GlanceModifier.height(2.dp))
+                    if (headerKcal != null) {
                         Text(
-                            kcalLine,
+                            headerKcal,
                             style = TextStyle(
                                 color = ColorProvider(Color(palette.muted)),
-                                fontSize = c.text(10.5f).sp,
+                                fontSize = smallSp.sp,
                             ),
+                            maxLines = 1,
                         )
                     }
                 }
             }
+            Spacer(GlanceModifier.height(gap.dp))
+            Image(
+                provider = ImageProvider(
+                    WidgetPainter.sparkline(
+                        widthPx = render.width,
+                        heightPx = render.height,
+                        entries = data.entries,
+                        stats = stats,
+                        palette = palette,
+                        density = render.scale,
+                        // Fewer ticks than the 4x4, but a line with no scale beside
+                        // it is just a squiggle.
+                        axes = WidgetPainter.Axes(
+                            data.unit,
+                            textSp = c.axis(9.5f),
+                            typeface = WidgetPainter.mono(context),
+                        ),
+                    )
+                ),
+                contentDescription = null,
+                // The remainder of the cell, and the picture scaled into it without
+                // ever being distorted.
+                //
+                // Because every row above is given the height it was counted as rather
+                // than left to measure itself, that remainder is [chartH] to the pixel
+                // wherever the launcher reports its cells honestly — the box and the
+                // picture are then the same shape and the same size, and Fit does
+                // nothing at all. Where the launcher understates the cell the box comes
+                // out taller than the picture was drawn for, and Fit enlarges the whole
+                // picture to the width and centres it, which costs a band above and
+                // below. FillBounds would spend that band instead of stretching the
+                // figures on the axes, and axis figures stretched by half are the
+                // squashed type this went looking for.
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
+                contentScale = ContentScale.Fit,
+            )
         }
     }
 }
@@ -687,7 +734,8 @@ class BigWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val density = LocalContext.current.resources.displayMetrics.density
+        val context = LocalContext.current
+        val density = context.resources.displayMetrics.density
         val c = cell(designWidthDp = 215f, designHeightDp = 238f)
 
         val headerSp = c.text(26f)
@@ -700,25 +748,29 @@ class BigWidget : BaseWeightWidget() {
         val tilePadV = c.space(10f)
         val tileH = c.lineH(tileLabelSp, 1.4f) + 2f + c.lineH(tileValueSp, 1.4f) + tilePadV * 2f
 
-        // A quarter-width tile cannot hold "370 kcal" once the cell scales the type,
-        // so the energy figure is a full-width line under the chart instead — the
-        // same place the app itself puts it.
+        // A quarter-width tile cannot hold "370 kcal", so the energy figure is a
+        // full-width line under the chart instead — the same place the app puts it.
         val kcal = kcalLabel(stats)
 
-        // Every other row has a known height, so the chart takes the remainder — the
-        // whole design grows with the cell rather than sitting in the top of it, and
-        // shrinks with it rather than pushing the stat tiles off the bottom. The
-        // energy line is dropped first, for the same reason as on the 4x2.
+        // Every other row has a known height, so the chart takes the remainder — and
+        // takes it as a weight, so it grows into a cell bigger than the one reported
+        // instead of leaving the bottom of the tile empty. The energy line is dropped
+        // first when the sums do not leave the plot enough to be a plot.
         fun fixedFor(withKcal: Boolean) =
             c.lineH(headerSp, 1.4f) + gap * 3f + trackH + tileH +
                 if (withKcal) c.lineH(kcalSp, 1.4f) + c.space(6f) else 0f
-        val shownKcal = kcal?.takeIf { c.height - fixedFor(true) >= 72f }
-        val chartH = (c.height - fixedFor(shownKcal != null))
-            .coerceAtMost(c.width / 1.2f)
-            .coerceAtLeast(24f)
+        val shownKcal = kcal?.takeIf { c.height - fixedFor(true) >= 60f }
+        val chartH = (c.height - fixedFor(shownKcal != null)).coerceAtLeast(24f)
+        val render = Render(c.width, chartH, density)
 
         Column(modifier = GlanceModifier.fillMaxSize()) {
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+            // Every row but the chart is given the height it was counted as, so what is
+            // left over for the chart is the height its picture was drawn at. See the
+            // 4x2 for why that matters.
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().height(c.lineH(headerSp, 1.4f).dp),
+                verticalAlignment = Alignment.Bottom,
+            ) {
                 Text(
                     Units.format(stats.currentKg, data.unit),
                     style = TextStyle(
@@ -750,6 +802,7 @@ class BigWidget : BaseWeightWidget() {
                                 fontSize = chipSp.sp,
                                 fontWeight = FontWeight.Medium,
                             ),
+                            maxLines = 1,
                         )
                     }
                 }
@@ -758,18 +811,25 @@ class BigWidget : BaseWeightWidget() {
             Image(
                 provider = ImageProvider(
                     WidgetPainter.sparkline(
-                        widthPx = (c.width * density).roundToInt(),
-                        heightPx = (chartH * density).roundToInt(),
+                        widthPx = render.width,
+                        heightPx = render.height,
                         entries = data.entries,
                         stats = stats,
                         palette = palette,
-                        density = density,
+                        density = render.scale,
                         // Big enough to carry a scale, so the line can be read.
-                        axes = WidgetPainter.Axes(data.unit, textSp = c.text(9.5f)),
+                        axes = WidgetPainter.Axes(
+                            data.unit,
+                            textSp = c.axis(9.5f),
+                            typeface = WidgetPainter.mono(context),
+                        ),
                     )
                 ),
                 contentDescription = null,
-                modifier = GlanceModifier.fillMaxWidth().height(chartH.dp),
+                // See the 4x2: exactly the box on a launcher that reports honestly,
+                // and scaled without distortion on one that does not.
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
+                contentScale = ContentScale.Fit,
             )
             if (shownKcal != null) {
                 Spacer(GlanceModifier.height(c.space(6f).dp))
@@ -780,32 +840,33 @@ class BigWidget : BaseWeightWidget() {
                         fontSize = kcalSp.sp,
                         textAlign = TextAlign.Center,
                     ),
-                    modifier = GlanceModifier.fillMaxWidth(),
+                    maxLines = 1,
+                    modifier = GlanceModifier.fillMaxWidth().height(c.lineH(kcalSp, 1.4f).dp),
                 )
             }
             Spacer(GlanceModifier.height(gap.dp))
-            ProgressTrack(stats.progress, palette, height = trackH.roundToInt().coerceAtLeast(4))
+            ProgressTrack(stats.progress, palette, c.width, trackH, density)
             Spacer(GlanceModifier.height(gap.dp))
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                Box(modifier = GlanceModifier.defaultWeight()) {
+            Row(modifier = GlanceModifier.fillMaxWidth().height(tileH.dp)) {
+                Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
                     StatTile(
                         "Left", Units.formatWithUnit(stats.leftKg, data.unit), palette,
                         tileLabelSp, tileValueSp, tilePadV,
                     )
                 }
                 Spacer(GlanceModifier.width(1.dp))
-                Box(modifier = GlanceModifier.defaultWeight()) {
+                Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
                     StatTile(
                         "Per day",
-                        if (stats.hasRate) Units.format(stats.neededPerDay, data.unit, 2) else "\u2014",
+                        if (stats.hasRate) Units.format(stats.neededPerDay, data.unit, 2) else "—",
                         palette, tileLabelSp, tileValueSp, tilePadV,
                     )
                 }
                 Spacer(GlanceModifier.width(1.dp))
-                Box(modifier = GlanceModifier.defaultWeight()) {
+                Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
                     StatTile(
                         "Finish",
-                        stats.projectedFinish?.format(isoShort) ?: "\u2014",
+                        stats.projectedFinish?.format(isoShort) ?: "—",
                         palette, tileLabelSp, tileValueSp, tilePadV,
                         valueColor = palette.accent,
                     )
@@ -830,48 +891,52 @@ class GlanceWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val density = LocalContext.current.resources.displayMetrics.density
-        val c = cell(designWidthDp = 165f, designHeightDp = 44f)
+        val context = LocalContext.current
+        val density = context.resources.displayMetrics.density
+        val c = cell(designWidthDp = 165f, designHeightDp = 44f, maxScale = 1.7f)
 
         val trackH = c.stroke(6f)
-        val gap = c.space(8f)
-        // The ring shares the height with the bar, so it is sized against what is left
-        // — and never floored above it, which at the widget's own declared 250x60
-        // minimum drew a 26 dp ring beside two lines of type in a row too short for
-        // either, and cut both through the middle.
+        val gap = c.space(6f)
+        val weightSp = c.text(15f)
+        val subSp = c.text(11.5f)
+        // The ring shares the row with the two lines beside it and is the shorter of
+        // the two, so it is sized against them rather than against the cell.
         val rowH = (c.height - trackH - gap).coerceAtLeast(12f)
-        val diameter = minOf(rowH, 44f)
-        // The two lines beside the ring are the taller half of that row, so they are
-        // what has to be squeezed into it.
-        val weightSpRaw = c.text(15f)
-        val subSpRaw = c.text(11.5f)
-        val k = (rowH / (c.lineH(weightSpRaw, 1.3f) + c.lineH(subSpRaw, 1.3f))).coerceAtMost(1f)
-        val weightSp = weightSpRaw * k
-        val subSp = subSpRaw * k
+        val k = (rowH / (c.lineH(weightSp, 1.3f) + c.lineH(subSp, 1.3f))).coerceIn(0.6f, 1f)
+        val diameter = minOf(rowH, c.space(44f)).coerceAtLeast(12f)
+        val render = Render(diameter, diameter, density)
 
         // The middle line takes the energy figure only when ring, label and percent
-        // all fit the span at the height-scaled fonts (the label runs ~13em with the
-        // figure appended); a narrow 4x1 keeps the plain "left" label instead.
-        val kcal = kcalLabel(stats)?.takeIf {
-            c.width >= diameter + subSp * 13f + weightSp * 2.8f + 22f
+        // all fit the span; a narrow 4x1 keeps the plain "left" label instead. The
+        // em counts this replaces (`subSp * 13f`) could not see the reader's text
+        // setting, so the same strip fitted or clipped by the font scale alone.
+        val kcal = kcalLabel(stats)?.takeIf { label ->
+            val line = "${remainingLabel(stats, data)} · $label"
+            val ink = WidgetPainter.textWidthDp(context, line, subSp * k) +
+                WidgetPainter.textWidthDp(context, pctLabel(stats), weightSp * k, medium = true)
+            c.width - diameter - 12f - GLANCE_TEXT_SLACK - ink >= c.space(10f)
         }
 
         Column(
             modifier = GlanceModifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Image(
                     provider = ImageProvider(
                         WidgetPainter.ring(
-                            (diameter * density).roundToInt(),
-                            diameter * 0.118f * density,
-                            stats.progress,
-                            palette,
+                            sizePx = render.width,
+                            progress = stats.progress,
+                            palette = palette,
+                            strokeFraction = 0.118f,
                         )
                     ),
                     contentDescription = null,
                     modifier = GlanceModifier.size(diameter.dp),
+                    contentScale = ContentScale.Fit,
                 )
                 Spacer(GlanceModifier.width(12.dp))
                 Column {
@@ -879,16 +944,17 @@ class GlanceWidget : BaseWeightWidget() {
                         Units.formatWithUnit(stats.currentKg, data.unit),
                         style = TextStyle(
                             color = ColorProvider(Color(palette.onSurface)),
-                            fontSize = weightSp.sp,
+                            fontSize = (weightSp * k).sp,
                             fontWeight = FontWeight.Medium,
                         ),
+                        maxLines = 1,
                     )
                     Text(
                         if (kcal != null) "${remainingLabel(stats, data)} · $kcal"
                         else remainingLabel(stats, data),
                         style = TextStyle(
                             color = ColorProvider(Color(palette.muted)),
-                            fontSize = subSp.sp,
+                            fontSize = (subSp * k).sp,
                         ),
                         maxLines = 1,
                     )
@@ -898,13 +964,13 @@ class GlanceWidget : BaseWeightWidget() {
                     pctLabel(stats),
                     style = TextStyle(
                         color = ColorProvider(Color(palette.accent)),
-                        fontSize = weightSp.sp,
+                        fontSize = (weightSp * k).sp,
                         fontWeight = FontWeight.Medium,
                     ),
                 )
             }
             Spacer(GlanceModifier.height(gap.dp))
-            ProgressTrack(stats.progress, palette, height = trackH.roundToInt().coerceAtLeast(4))
+            ProgressTrack(stats.progress, palette, c.width, trackH, density)
         }
     }
 }
@@ -923,47 +989,63 @@ class GlanceCompactWidget : BaseWeightWidget() {
     @Composable
     override fun Content(data: WidgetData, palette: WidgetPalette) {
         val stats = data.stats!!
-        val density = LocalContext.current.resources.displayMetrics.density
-        val c = cell(designWidthDp = 122f, designHeightDp = 36f)
+        val context = LocalContext.current
+        val density = context.resources.displayMetrics.density
+        val c = cell(designWidthDp = 122f, designHeightDp = 36f, maxScale = 1.7f)
 
-        // At the widget's own declared 110x40 minimum the old floor asked for a 26 dp
-        // ring and two lines of type inside 12 dp of content, and the launcher cut the
-        // weight in half. Ring and type both take what the cell actually has.
-        val diameter = minOf(c.height, 44f).coerceAtLeast(12f)
-        val weightSpRaw = c.text(15f)
-        val subSpRaw = c.text(11.5f)
-        val k = (c.height / (c.lineH(weightSpRaw, 1.3f) + c.lineH(subSpRaw, 1.3f))).coerceAtMost(1f)
-        val weightSp = weightSpRaw * k
-        val subSp = subSpRaw * k
+        val weightSp = c.text(15f)
+        val subSp = c.text(11.5f)
+        val diameter = minOf(c.height, c.space(44f)).coerceAtLeast(12f)
+        val weightText = Units.formatWithUnit(stats.currentKg, data.unit)
+        val caption = pctLabel(stats) + " of plan"
+
+        // A 2x1 is the one widget whose type is decided by the width and not the
+        // height. The column beside the ring is whatever the ring leaves, and a
+        // taller strip grows the type without growing that column — so the caption
+        // was ellipsised on the strips that had the most room for it, and whether it
+        // survived at all came down to how the density happened to round it: the same
+        // 110x40 dp cell fitted "43% of plan" at 480 dpi and cut it at 420.
+        val textW = (c.width - diameter - 10f - GLANCE_TEXT_SLACK).coerceAtLeast(1f)
+        val kH = c.height / (c.lineH(weightSp, 1.3f) + c.lineH(subSp, 1.3f))
+        val kW = minOf(
+            textW / WidgetPainter.textWidthDp(context, weightText, weightSp, medium = true),
+            textW / WidgetPainter.textWidthDp(context, caption, subSp),
+        )
+        val k = minOf(kH, kW).coerceIn(0.6f, 1f)
+        val render = Render(diameter, diameter, density)
+
         Row(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 provider = ImageProvider(
                     WidgetPainter.ring(
-                        (diameter * density).roundToInt(),
-                        diameter * 0.118f * density,
-                        stats.progress,
-                        palette,
+                        sizePx = render.width,
+                        progress = stats.progress,
+                        palette = palette,
+                        strokeFraction = 0.118f,
                     )
                 ),
                 contentDescription = null,
                 modifier = GlanceModifier.size(diameter.dp),
+                contentScale = ContentScale.Fit,
             )
             Spacer(GlanceModifier.width(10.dp))
             Column {
                 Text(
-                    Units.formatWithUnit(stats.currentKg, data.unit),
+                    weightText,
                     style = TextStyle(
                         color = ColorProvider(Color(palette.onSurface)),
-                        fontSize = weightSp.sp,
+                        fontSize = (weightSp * k).sp,
                         fontWeight = FontWeight.Medium,
                     ),
+                    maxLines = 1,
                 )
                 Text(
-                    pctLabel(stats) + " of plan",
+                    caption,
                     style = TextStyle(
                         color = ColorProvider(Color(palette.accent)),
-                        fontSize = subSp.sp,
+                        fontSize = (subSp * k).sp,
                     ),
+                    maxLines = 1,
                 )
             }
         }

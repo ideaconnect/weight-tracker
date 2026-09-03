@@ -55,7 +55,7 @@ class WidgetsTest : E2eTestBase() {
         waitFor("behind", substring = true)
         screenshot("app-behind")
 
-        // The placement scenario usually ran first and left both widgets on the
+        // The widgets scenario usually ran first and left both widgets on the
         // launcher; when this scenario runs on its own, place them itself.
         val bound = device.executeShellCommand("dumpsys appwidget")
         for ((kind, receiver) in listOf("RING" to "RingWidgetReceiver", "BAR" to "BarWidgetReceiver")) {

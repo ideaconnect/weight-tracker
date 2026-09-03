@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         const val ROUTE_HOME = "home"
         const val ROUTE_LOG = "log"
         const val ROUTE_PAYWALL = "paywall"
-        const val ROUTE_PLACEMENT = "placement"
+        const val ROUTE_WIDGETS = "widgets"
     }
 
     private val viewModel: AppViewModel by viewModels()

@@ -145,8 +145,8 @@ fun SettingsScreen(
                         Text("Background sync", style = TextStyle(fontSize = 14.5.sp), color = colors.onSurface)
                         Text(
                             when {
-                                !health.backgroundSupported -> "Needs Android 15 or newer"
-                                settings.backgroundSyncEnabled -> "Once a day, app closed"
+                                !health.backgroundSupported -> "Health Connect here can't read in the background"
+                                settings.backgroundSyncEnabled -> "Every 30 minutes, app closed"
                                 else -> "Off — syncs on app open"
                             },
                             style = TextStyle(fontSize = 11.5.sp),

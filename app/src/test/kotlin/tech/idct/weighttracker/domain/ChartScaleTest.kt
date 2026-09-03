@@ -9,41 +9,118 @@ import java.time.LocalDate
 /** The axes land on round weights and real calendar boundaries. */
 class ChartScaleTest {
 
+    /**
+     * The one that matters: the plot's bottom edge is its own lowest label, so the
+     * bottom gridline lies along the X axis instead of floating above it. Everything
+     * else here is a way of checking that stays true without the scale going silly.
+     */
     @Test
-    fun `the worked example's range gets whole even kilograms`() {
-        // 73.2 to 84.2 kg, the domain the sample plan draws: six ticks at most.
-        val ticks = ChartScale.niceTicks(73.2f, 84.2f, 6)
-        assertEquals(listOf(74f, 76f, 78f, 80f, 82f, 84f), ticks)
+    fun `the lowest label is the bottom of the plot`() {
+        val ranges = listOf(
+            74.4f to 82.7f,     // the sample loss plan, band included
+            69.4f to 78.3f,     // a gain plan
+            78.6f to 80.3f,     // a week of a plan, under a kilogram of range
+            79.4f to 110.3f,    // thirty kilograms
+            164.0f to 182.3f,   // the sample plan in pounds
+        )
+        for ((lo, hi) in ranges) {
+            for (maxTicks in 2..8) {
+                val axis = ChartScale.axis(lo, hi, maxTicks)
+                assertTrue("$lo..$hi at $maxTicks has no ticks", axis.ticks.isNotEmpty())
+                assertEquals(
+                    "$lo..$hi at $maxTicks does not start on its own bottom",
+                    axis.lo, axis.ticks.first(), 0.001f,
+                )
+                assertTrue(
+                    "$lo..$hi at $maxTicks moved the bottom up, over the content",
+                    axis.lo <= lo + 0.001f,
+                )
+                assertTrue(
+                    "$lo..$hi at $maxTicks used more labels than it was given",
+                    axis.ticks.size <= maxTicks,
+                )
+            }
+        }
     }
 
     @Test
-    fun `a week's range uses half kilograms`() {
-        val ticks = ChartScale.niceTicks(78.6f, 80.9f, 6)
-        assertEquals(listOf(79f, 79.5f, 80f, 80.5f), ticks)
+    fun `the worked example stands on its own lowest weight`() {
+        // 74.4 to 82.7 kg, the domain the sample plan draws: six labels at most.
+        // The bottom is the lowest weight drawn, and whole kilograms above it.
+        val axis = ChartScale.axis(74.4f, 82.7f, 6)
+        assertEquals(74.4f, axis.lo, 0.001f)
+        assertEquals(listOf(74.4f, 76f, 78f, 80f, 82f), axis.ticks)
+    }
+
+    /**
+     * The one the user reported: a goal that is not a whole kilogram used to leave
+     * the plan line landing above the X axis, while the projection's dot — drawn on
+     * the axis by construction — sat correctly on it. Both mark the same finish, so
+     * the bottom of the plot is the goal itself.
+     */
+    @Test
+    fun `a goal off the round grid still lands on the axis`() {
+        for (goal in listOf(74.5f, 74.4f, 85.5f, 92.3f, 68.7f)) {
+            val axis = ChartScale.axis(goal, goal + 8.3f, 6)
+            assertEquals("$goal does not sit on the axis", goal, axis.lo, 0.001f)
+            assertEquals("$goal is not the bottom label", goal, axis.ticks.first(), 0.001f)
+        }
+    }
+
+    /** No second label close enough to the bottom one to read as a smudge. */
+    @Test
+    fun `the label above the bottom keeps its distance`() {
+        for (goal in listOf(74.1f, 74.5f, 74.9f, 161.2f)) {
+            val axis = ChartScale.axis(goal, goal + 8.3f, 6)
+            val gaps = axis.ticks.zipWithNext { a, b -> b - a }
+            val grid = gaps.drop(1).minOrNull() ?: return
+            assertTrue(
+                "$goal crowds its bottom label: ${axis.ticks}",
+                gaps.first() >= grid * 0.5f - 0.001f,
+            )
+        }
     }
 
     @Test
-    fun `a widget with room for three ticks gets a coarser step`() {
-        val ticks = ChartScale.niceTicks(73.2f, 84.2f, 3)
-        assertEquals(listOf(75f, 80f), ticks)
+    fun `a week's range uses fractions of a kilogram`() {
+        val axis = ChartScale.axis(78.6f, 80.9f, 6)
+        assertEquals(78.6f, axis.lo, 0.001f)
+        assertEquals(listOf(78.6f, 79f, 79.4f, 79.8f, 80.2f, 80.6f), axis.ticks)
+    }
+
+    /**
+     * A tight budget labels fewer of the same weights rather than reaching for a
+     * coarser step — a step chosen by the label budget alone would drop the bottom
+     * of this range from 74.4 to 70 and spend a third of the plot on empty air.
+     */
+    @Test
+    fun `a widget with room for three labels keeps the bottom where it is`() {
+        val axis = ChartScale.axis(74.4f, 82.7f, 3)
+        assertEquals(74.4f, axis.lo, 0.001f)
+        assertEquals(listOf(74.4f, 78f, 81f), axis.ticks)
     }
 
     @Test
     fun `a bound that is itself round keeps its tick`() {
-        assertEquals(listOf(74f, 76f, 78f, 80f), ChartScale.niceTicks(74f, 80f, 6))
+        val axis = ChartScale.axis(74f, 80f, 6)
+        assertEquals(74f, axis.lo, 0.001f)
+        assertEquals(74f, axis.ticks.first(), 0.001f)
     }
 
     @Test
-    fun `pounds get round pounds`() {
-        // 161.4 to 185.6 lb: five-pound steps.
-        val ticks = ChartScale.niceTicks(161.4f, 185.6f, 6)
-        assertEquals(listOf(165f, 170f, 175f, 180f, 185f), ticks)
+    fun `pounds get round pounds above their own bottom`() {
+        // Twenty-four pounds is too wide for a one-pound grid to stay a scale rather
+        // than a hatch, so it steps in fives — above a bottom that is still the
+        // lowest weight the chart draws rather than the round number under it.
+        val axis = ChartScale.axis(161.4f, 185.6f, 6)
+        assertEquals(161.4f, axis.lo, 0.001f)
+        assertEquals(listOf(161.4f, 165f, 170f, 175f, 180f, 185f), axis.ticks)
         assertEquals("165.0", ChartScale.label(165f))
     }
 
     @Test
     fun `an empty range has no ticks`() {
-        assertTrue(ChartScale.niceTicks(80f, 80f, 6).isEmpty())
+        assertTrue(ChartScale.axis(80f, 80f, 6).ticks.isEmpty())
     }
 
     private val start = LocalDate.of(2026, 7, 1)

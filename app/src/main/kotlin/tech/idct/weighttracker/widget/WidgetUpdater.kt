@@ -48,11 +48,14 @@ object WidgetUpdater {
         val manager = context.getSystemService(AppWidgetManager::class.java) ?: return false
         if (Build.VERSION.SDK_INT < 26 || !manager.isRequestPinAppWidgetSupported) return false
         val provider = ComponentName(context, kind.receiver)
+        // Handing control back lands on the gallery the pin started from, which is
+        // also where the next size is added. The home screen itself is one press away
+        // and shows the real widget, so the app no longer draws a picture of one.
         val callback = PendingIntent.getActivity(
             context,
             kind.ordinal,
             Intent(context, MainActivity::class.java)
-                .putExtra(MainActivity.EXTRA_ROUTE, MainActivity.ROUTE_PLACEMENT),
+                .putExtra(MainActivity.EXTRA_ROUTE, MainActivity.ROUTE_WIDGETS),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         return runCatching { manager.requestPinAppWidget(provider, null, callback) }.getOrDefault(false)

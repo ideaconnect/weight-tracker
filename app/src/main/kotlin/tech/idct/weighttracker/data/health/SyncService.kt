@@ -9,7 +9,7 @@ import java.time.LocalDate
 
 /**
  * Section 4: autosync runs on every app open, silently. Background sync, when
- * granted, runs once a day and updates widgets and the reminder body.
+ * granted, runs every half hour and updates widgets and the reminder body.
  */
 class SyncService(
     private val context: Context,

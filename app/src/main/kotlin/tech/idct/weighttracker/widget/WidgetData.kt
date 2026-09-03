@@ -111,6 +111,8 @@ class WidgetPalette(dark: Boolean, behind: Boolean) {
     val background = if (dark) 0xFF0D0D0D.toInt() else 0xFFFAFAFA.toInt()
     val surfaceAlt = if (dark) 0xFF161616.toInt() else 0xFFF2F2F2.toInt()
     val outline = if (dark) 0xFF242424.toInt() else 0xFFE4E4E4.toInt()
+    /** WtColors.grid: fainter than [outline], because a gridline is not a border. */
+    val grid = if (dark) 0xFF1D1D1D.toInt() else 0xFFECECEC.toInt()
     val onSurface = if (dark) 0xFFF3F3F3.toInt() else 0xFF121212.toInt()
     val muted = if (dark) 0xFF8B8B8B.toInt() else 0xFF6B6B6B.toInt()
     val onTrack = if (dark) 0xFF4FC97F.toInt() else 0xFF2E9A5E.toInt()
@@ -119,4 +121,11 @@ class WidgetPalette(dark: Boolean, behind: Boolean) {
 
     /** Every widget sparkline turns amber when the user is behind the plan (section 6). */
     val accent = if (behind) behindColor else onTrack
+
+    /**
+     * The projection's own colour, matching WtColors.trend. It is deliberately not a
+     * status: §6 reserves amber for being behind, so the line that says where the
+     * weights are heading is told apart from the grey plan line by hue instead.
+     */
+    val trend = if (dark) 0xFF5AA9FF.toInt() else 0xFF1668D6.toInt()
 }

@@ -70,7 +70,11 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** Range chips: 7d / 30d / 90d / whole plan span, defaulting to the whole span. */
+/**
+ * Range chips: 7d / 30d / 90d of history, or the road ahead, which is what the chart
+ * opens on. The past is still drawn and still reachable — the bounds have not moved,
+ * so a pan or a pinch walks back into it — it is simply not where the chart starts.
+ */
 enum class ChartRange(val label: String, val days: Int?) {
     D7("7d", 7),
     D30("30d", 30),
@@ -128,10 +132,25 @@ fun WeightChart(
     val span = stats.spanDays
 
     val bounds = remember(span, firstDay, lastDay) { chartBounds(span, firstDay, lastDay) }
-    val presetWin = remember(range, bounds, todayIndex) { defaultWindow(range, bounds, todayIndex) }
+    val lastEntryDay = entryDays.lastOrNull()?.first ?: todayIndex
+    val presetWin = remember(range, bounds, todayIndex, lastEntryDay) {
+        defaultWindow(range, bounds, todayIndex, lastEntryDay)
+    }
     val win = remember(presetWin, custom, bounds) { custom?.let { clampWindow(it, bounds) } ?: presetWin }
     val zoom = presetWin.width / win.width
     val yDom = remember(win, entryDays, plan) { computeYDomain(win, entryDays, plan, stats) }
+
+    // The scale carries the bottom of the plot with it: its first tick IS the bottom,
+    // so the lowest label lands on the X axis rather than a little above it. Ticks are
+    // found in the display unit, so a pound user sees 175 and 180 rather than the odd
+    // fractions a kilogram step converts to.
+    val yAxis = remember(yDom, unit) {
+        ChartScale.axis(Units.toDisplay(yDom.lo, unit), Units.toDisplay(yDom.hi, unit), 6)
+    }
+    val yLo = remember(yAxis, unit) { Units.fromDisplay(yAxis.lo, unit) }
+    val yTicks = remember(yAxis, unit) {
+        yAxis.ticks.map { Units.fromDisplay(it, unit) to ChartScale.label(it) }
+    }
 
     // Pixel geometry, in the proportions the prototype lays out (331 x 206 units).
     // Derived from whatever width and height are in hand: the draw pass uses the
@@ -144,7 +163,7 @@ fun WeightChart(
 
     fun xIn(width: Float, day: Float): Float = axOf(width) + (day - win.x0) / win.width * awOf(width)
     fun yIn(height: Float, kg: Float): Float =
-        ayOf(height) + (yDom.hi - kg) / (yDom.hi - yDom.lo) * ahOf(height)
+        ayOf(height) + (yDom.hi - kg) / (yDom.hi - yLo) * ahOf(height)
 
     val w = plotSize.width.toFloat()
     val h = plotSize.height.toFloat()
@@ -153,13 +172,7 @@ fun WeightChart(
     fun xOf(day: Float): Float = xIn(w, day)
     fun yOf(kg: Float): Float = yIn(h, kg)
 
-    // Round weights in the display unit, so a pound user sees 175 and 180 rather
-    // than the odd fractions a kilogram step converts to.
     val axisStyle = TextStyle(fontFamily = RobotoMono, fontSize = 9.5.sp, color = colors.muted)
-    val yTicks = remember(yDom, unit) {
-        ChartScale.niceTicks(Units.toDisplay(yDom.lo, unit), Units.toDisplay(yDom.hi, unit), 6)
-            .map { Units.fromDisplay(it, unit) to ChartScale.label(it) }
-    }
     // Calendar-aligned dates, as many as the plot can label without them touching.
     val dateLabelWidth = measurer.measure("00-00", axisStyle).size.width.toFloat()
     val maxDateTicks = if (w > 0f) (awOf(w) / (dateLabelWidth * 1.7f)).toInt().coerceIn(2, 8) else 4
@@ -269,15 +282,31 @@ fun WeightChart(
                 fun yOf(kg: Float): Float = yIn(size.height, kg)
                 fun planAt(day: Float): Float = PlanMath.planKgAt(plan, day)
 
-                // 1. Horizontal gridlines at the round weights labelled in the gutter.
+                // 1. Horizontal gridlines at the round weights labelled in the gutter,
+                //    and the two axes those gridlines and dates are read against. A grid
+                //    of free-floating rules is not a pair of axes; §6 puts figures in a
+                //    left gutter and dates underneath, and they need a corner to hang on.
                 yTicks.forEach { (kg, _) ->
                     val y = yOf(kg)
                     drawLine(colors.grid, Offset(ax, y), Offset(ax + aw, y), strokeWidth = 1f)
                 }
+                val axisColor = colors.muted.copy(alpha = 0.45f)
+                drawLine(axisColor, Offset(ax, ay), Offset(ax, ay + ah), strokeWidth = 1.2f * dpx)
+                drawLine(
+                    axisColor,
+                    Offset(ax, ay + ah),
+                    Offset(ax + aw, ay + ah),
+                    strokeWidth = 1.2f * dpx,
+                )
+
+                // The readings in view, and the one just beyond each edge so the line
+                // enters and leaves the plot. Shared by the line and the points, which
+                // are drawn under clips of different heights.
+                val visible = entriesAround(entryDays, win)
 
                 // The data layers stay inside the plot: zoomed in, the band and the
                 // plan line run far past both edges and used to paint over the gutter.
-                clipRect(left = ax - dpx, top = 0f, right = ax + aw + dpx, bottom = size.height) {
+                clipRect(left = ax - dpx, top = 0f, right = ax + aw + dpx, bottom = ay + ah) {
                     // 2. Tolerance band, plan +/- 0.6 kg, at 9% opacity in the status
                     //    colour. The plan line is the §5 function: sloped from the
                     //    start to the target date, flat at the target after it, and
@@ -323,8 +352,11 @@ fun WeightChart(
                         )
                     }
 
-                    // 4. Trend projection: finely dotted, deliberately neutral so it
-                    //    cannot be confused with a status. Clamped to the right edge.
+                    // 4. Trend projection: finely dotted, in blue. §6 spends amber on
+                    //    one thing only, so the projection cannot borrow it — but drawn
+                    //    in a second grey it was indistinguishable from the plan line it
+                    //    exists to be compared with, which is the whole point of it.
+                    //    Clamped to the right edge.
                     val finish = stats.projectedFinish
                     if (dated && finish != null) {
                         val finishDay = PlanMath.dayIndex(startDate, finish).toFloat()
@@ -335,12 +367,11 @@ fun WeightChart(
                         val yEnd = stats.currentKg + (plan.targetKg - stats.currentKg) * f
                         val trendFrom = entryDays.lastOrNull()?.first?.toFloat() ?: lastDay.toFloat()
                         drawLine(
-                            color = colors.onSurface,
+                            color = colors.trend,
                             start = Offset(xOf(trendFrom), yOf(stats.currentKg)),
                             end = Offset(xOf(xEnd), yOf(yEnd)),
-                            strokeWidth = 1.2f * dpx,
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(1.5f * dpx, 3.5f * dpx)),
-                            alpha = 0.5f,
+                            strokeWidth = 1.6f * dpx,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(1.5f * dpx, 3f * dpx)),
                         )
                     }
 
@@ -348,7 +379,6 @@ fun WeightChart(
                     //    Section 13: gaps are a straight segment between known points.
                     //    One entry beyond each edge is kept so the line enters and
                     //    leaves the plot rather than starting inside it.
-                    val visible = entriesAround(entryDays, win)
                     if (visible.size >= 2) {
                         val path = Path()
                         visible.forEachIndexed { i, (day, entry) ->
@@ -366,14 +396,6 @@ fun WeightChart(
                             ),
                         )
                     }
-                    // Zoomed in far enough for readings to stand apart, each gets a
-                    // dot: a week of weigh-ins is seven numbers, not one wobble.
-                    if (aw / win.width >= 6f * dpx) {
-                        visible.forEach { (day, entry) ->
-                            drawCircle(accent, radius = 2.2f * dpx, center = Offset(xOf(day.toFloat()), yOf(entry.kg)))
-                        }
-                    }
-
                     // A vertical hairline marks today.
                     drawLine(
                         colors.outline,
@@ -381,6 +403,35 @@ fun WeightChart(
                         Offset(xOf(todayIndex.toFloat()), ay + ah),
                         strokeWidth = 1f,
                     )
+
+                    // Scrubber: a vertical line follows the finger; its ring is a point,
+                    // and points are drawn below with the rest of them.
+                    scrubEntry?.let { (day, _) ->
+                        val sx = xOf(day.toFloat())
+                        drawLine(colors.onSurface, Offset(sx, ay), Offset(sx, ay + ah), strokeWidth = 1f, alpha = 0.45f)
+                    }
+                }
+
+                // The reading marks get a clip of their own, reaching a little past the
+                // axis. The floor is the lowest weight the chart draws, so the lowest
+                // reading sits exactly ON the axis whenever it is that weight — and a
+                // clip that stops there cuts a 4 dp dot in half. The goal ring is drawn
+                // outside the clip for the same reason. Horizontally they are clipped
+                // exactly as the lines are, or the entry kept just beyond each edge
+                // paints over the weight gutter.
+                clipRect(
+                    left = ax - dpx,
+                    top = 0f,
+                    right = ax + aw + dpx,
+                    bottom = ay + ah + 5f * dpx,
+                ) {
+                    // Zoomed in far enough for readings to stand apart, each gets a
+                    // dot: a week of weigh-ins is seven numbers, not one wobble.
+                    if (aw / win.width >= 6f * dpx) {
+                        visible.forEach { (day, entry) ->
+                            drawCircle(accent, radius = 2.2f * dpx, center = Offset(xOf(day.toFloat()), yOf(entry.kg)))
+                        }
+                    }
 
                     // A filled dot on the latest reading. Anchored to the entry's own
                     // day, not to `lastDay` — that is today whenever today has not been
@@ -393,10 +444,8 @@ fun WeightChart(
                         )
                     }
 
-                    // Scrubber: a vertical line follows the finger, the nearest entry a ring.
                     scrubEntry?.let { (day, entry) ->
                         val sx = xOf(day.toFloat())
-                        drawLine(colors.onSurface, Offset(sx, ay), Offset(sx, ay + ah), strokeWidth = 1f, alpha = 0.45f)
                         drawCircle(colors.background, radius = 5f * dpx, center = Offset(sx, yOf(entry.kg)))
                         drawCircle(
                             accent,
@@ -423,11 +472,19 @@ fun WeightChart(
                         color = colors.onSurface,
                     )
                     val goalLabel = measurer.measure("${Units.format(plan.targetKg, unit)} goal", goalStyle)
+                    // Under the ring, unless the ring is on the axis — which it now is
+                    // whenever the goal is the lowest weight drawn — in which case the
+                    // label goes above it rather than down among the dates.
+                    val goalY = yOf(plan.targetKg).let { markerY ->
+                        val below = markerY + 8f * dpx
+                        if (below + goalLabel.size.height <= ay + ah) below
+                        else markerY - 8f * dpx - goalLabel.size.height
+                    }
                     drawText(
                         goalLabel,
                         topLeft = Offset(
                             (xOf(targetX) - goalLabel.size.width).coerceAtLeast(ax),
-                            yOf(plan.targetKg) + 8f * dpx,
+                            goalY,
                         ),
                     )
                 }
@@ -443,15 +500,56 @@ fun WeightChart(
                         ),
                     )
                 }
-                // Dates under the plot, centred on their tick and never overlapping.
-                var lastRight = -Float.MAX_VALUE
-                dateTicks.forEach { (day, label) ->
-                    val layout = measurer.measure(label, axisStyle)
+                // Where each line reaches the goal, named on the axis it reaches it
+                // on: the plan on its target date, the trend on the date the weights
+                // are actually heading for. Both are marked with a dot on the axis and
+                // take the first row they fit, so a fortnight between them does not
+                // cost one of them its label. The calendar then fills in below.
+                val taken = Array(2) { mutableListOf<Pair<Float, Float>>() }
+                fun rowTop(row: Int, height: Int): Float = ay + ah + 5f * dpx + row * height * 1.1f
+                fun placeDate(day: Float, label: String, color: Color, rows: IntRange, dot: Boolean) {
+                    val layout = measurer.measure(label, axisStyle.copy(color = color))
                     val left = (xOf(day) - layout.size.width / 2f)
                         .coerceIn(0f, size.width - layout.size.width)
-                    if (left < lastRight + 4f * dpx) return@forEach
-                    drawText(layout, topLeft = Offset(left, ay + ah + 5f * dpx))
-                    lastRight = left + layout.size.width
+                    val right = left + layout.size.width
+                    val gap = 4f * dpx
+                    val row = rows.firstOrNull { i ->
+                        // The strip under the axis is a fixed share of the plot, but the
+                        // figures in it are sp: at a reader's 2x text a second row falls
+                        // off the bottom, and a Canvas does not clip, so it would paint
+                        // over the chips. A row with no room for it is not offered.
+                        rowTop(i, layout.size.height) + layout.size.height <= size.height &&
+                            taken[i].none { (a, b) -> left < b + gap && a - gap < right }
+                    } ?: return
+                    taken[row].add(left to right)
+                    // The plan's landing already carries the hollow goal ring; only the
+                    // trend's needs a mark of its own.
+                    if (dot) drawCircle(color, radius = 2.6f * dpx, center = Offset(xOf(day), ay + ah))
+                    drawText(layout, topLeft = Offset(left, rowTop(row, layout.size.height)))
+                }
+                if (dated) {
+                    if (span > 0 && span.toFloat() in win.x0..win.x1) {
+                        placeDate(
+                            span.toFloat(),
+                            startDate.plusDays(span.toLong()).format(Format.monthDay),
+                            colors.muted, 0..1, false,
+                        )
+                    }
+                    stats.projectedFinish?.let { finish ->
+                        val finishDay = PlanMath.dayIndex(startDate, finish).toFloat()
+                        if (finishDay in win.x0..win.x1) {
+                            placeDate(finishDay, finish.format(Format.monthDay), colors.trend, 0..1, true)
+                        }
+                    }
+                }
+                // The calendar fills in below the landings — and "below" is the first
+                // row when neither landing is in view, which is every 7d, 30d and 90d
+                // window and every plan without a date. Pinned to the second row
+                // regardless, the dates hung a line under the axis with an empty row
+                // between, which reads as a gap rather than as a hierarchy.
+                val calendarRow = if (taken[0].isEmpty()) 0 else 1
+                dateTicks.forEach { (day, label) ->
+                    placeDate(day, label, colors.muted, calendarRow..calendarRow, false)
                 }
             }
 
@@ -543,7 +641,7 @@ fun WeightChart(
                 LineSwatch(colors.muted, dash = 3f, gap = 3f)
             }
             LegendItem("Trend") {
-                LineSwatch(colors.onSurface.copy(alpha = 0.55f), dash = 1.5f, gap = 2.5f)
+                LineSwatch(colors.trend, dash = 1.5f, gap = 2.5f)
             }
             if (dated) {
                 LegendItem("±0.6 band") {
@@ -599,16 +697,37 @@ internal fun chartBounds(span: Int, firstDay: Int, lastDay: Int): Win =
     Win(min(-2f, firstDay - 2f), max(span, lastDay + 4) + 6f)
 
 /**
- * The window a range chip shows: the whole plan, or the last N days up to today
+ * The window a range chip shows: the road ahead, or the last N days up to today
  * with a short lead for the trend — never further back than there is anything
  * to draw, so "90d" on a fortnight-old plan does not open on ten empty weeks.
  */
-internal fun defaultWindow(range: ChartRange, bounds: Win, todayIndex: Int): Win {
-    val days = range.days ?: return bounds
+internal fun defaultWindow(range: ChartRange, bounds: Win, todayIndex: Int, lastEntryDay: Int = todayIndex): Win {
+    val days = range.days ?: return planWindow(bounds, todayIndex, lastEntryDay)
     val lead = max(1f, (days * 0.12f).roundToInt().toFloat())
     val x1 = min(bounds.x1, todayIndex + lead)
     val x0 = max(bounds.x0, x1 - days)
     return Win(x0, x1)
+}
+
+/**
+ * The plan chip opens on what is left of the plan: today at the left edge, the target
+ * date and the projected finish at the right. Two months of weighed-in history behind
+ * the reader is not what the chart is being asked, and squeezing it in costs the part
+ * that is — the plan line, the band and the projection all converge in the right-hand
+ * third, which is where the question "am I going to make it" is actually answered.
+ *
+ * Nothing is thrown away: [chartBounds] still reaches back to the plan's first day, so
+ * a pan or a pinch-out walks into July. The two days of lead are the same margin the
+ * bounds carry, so the latest reading is not welded to the weight gutter.
+ */
+private fun planWindow(bounds: Win, todayIndex: Int, lastEntryDay: Int): Win {
+    // Today, or the last weigh-in if that is older. Anchoring on today alone opens
+    // a window with nothing of the user's own in it as soon as they miss a few
+    // days: no line — `entriesAround` hands back a single entry and the path needs
+    // two — no dot on the latest reading, and a projection rising out of a point
+    // off the left edge, since `computeYDomain` never sees the weight it starts at.
+    val x0 = (min(todayIndex, lastEntryDay) - 2f).coerceIn(bounds.x0, bounds.x1 - MIN_WINDOW_DAYS)
+    return Win(x0, bounds.x1)
 }
 
 /** Keep a pinched or panned window inside the bounds without changing its width. */
@@ -646,10 +765,10 @@ private fun computeYDomain(
     val planAtEnd = PlanMath.planKgAt(plan, ceil(win.x1).toInt())
     include(planAtStart)
     include(planAtEnd)
-    if (stats.dated) {
-        include(min(planAtStart, planAtEnd) - PlanMath.TOLERANCE_KG)
-        include(max(planAtStart, planAtEnd) + PlanMath.TOLERANCE_KG)
-    }
+    // Only the top of the band widens the domain. Its underside reaches half a
+    // kilogram below the plan, and letting that set the floor is what left the plan
+    // line ending in mid-air above the axis; it is clipped to the plot instead.
+    if (stats.dated) include(max(planAtStart, planAtEnd) + PlanMath.TOLERANCE_KG)
 
     // The goal marker, but only when it is actually in view.
     val targetDay = if (stats.dated && stats.spanDays > 0) stats.spanDays.toFloat() else win.x1 - 6f
@@ -665,6 +784,8 @@ private fun computeYDomain(
         include(plan.targetKg)
     }
 
+    // Headroom above only. The floor is the lowest weight the chart draws, so the
+    // goal sits on the axis rather than hovering over it.
     val pad = max(0.7f, (hi - lo) * 0.14f)
-    return YDomain(lo - pad, hi + pad)
+    return YDomain(lo, hi + pad)
 }

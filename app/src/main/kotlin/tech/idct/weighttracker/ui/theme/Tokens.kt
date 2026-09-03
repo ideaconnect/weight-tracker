@@ -19,6 +19,12 @@ data class WtColors(
     val onTrack: Color,
     val behind: Color,
     val grid: Color,
+    /**
+     * The trend projection. §6 spends amber on one thing only — being behind — so
+     * the line that says where the weights are heading cannot borrow it, and a
+     * second grey beside the grey plan line was a distinction nobody could see.
+     */
+    val trend: Color,
     /** Mock-launcher wallpaper behind widget previews. */
     val wall: Color,
     /** Text/icon colour that sits on top of [onTrack]. */
@@ -36,6 +42,7 @@ val DarkWtColors = WtColors(
     onTrack = Color(0xFF4FC97F),
     behind = Color(0xFFE0A44A),
     grid = Color(0xFF1D1D1D),
+    trend = Color(0xFF5AA9FF),
     wall = Color(0xFF101215),
     onAccent = Color(0xFF00160B),
     scrim = Color(0x8C000000),
@@ -51,6 +58,7 @@ val LightWtColors = WtColors(
     onTrack = Color(0xFF2E9A5E),
     behind = Color(0xFFA9720F),
     grid = Color(0xFFECECEC),
+    trend = Color(0xFF1668D6),
     wall = Color(0xFFDCDEE2),
     onAccent = Color(0xFFFFFFFF),
     scrim = Color(0x8C000000),

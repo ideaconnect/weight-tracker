@@ -40,7 +40,7 @@ import tech.idct.weighttracker.domain.WeightEntry
 import tech.idct.weighttracker.domain.WeightUnit
 import tech.idct.weighttracker.widget.WidgetKind
 import tech.idct.weighttracker.widget.WidgetUpdater
-import tech.idct.weighttracker.work.DailySyncWorker
+import tech.idct.weighttracker.work.HealthSyncWorker
 import tech.idct.weighttracker.work.Reminder
 import java.time.LocalDate
 import java.time.LocalTime
@@ -62,7 +62,7 @@ data class HealthState(
     val readGranted: Boolean = false,
     val writeGranted: Boolean = false,
     val backgroundGranted: Boolean = false,
-    val backgroundSupported: Boolean = HealthConnectManager.backgroundReadSupported,
+    val backgroundSupported: Boolean = HealthConnectManager.backgroundReadLikely,
 )
 
 data class AppUiState(
@@ -278,6 +278,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 readGranted = available && runCatching { health.hasReadPermission() }.getOrDefault(false),
                 writeGranted = available && runCatching { health.hasWritePermission() }.getOrDefault(false),
                 backgroundGranted = available && runCatching { health.hasBackgroundPermission() }.getOrDefault(false),
+                // Asked of Health Connect itself: the feature travels in its module,
+                // not in the platform, so an Android 14 phone may have it.
+                backgroundSupported = available &&
+                    runCatching { health.backgroundReadSupported }
+                        .getOrDefault(HealthConnectManager.backgroundReadLikely),
             )
         }
     }
@@ -403,8 +408,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBackgroundSyncEnabled(enabled: Boolean) {
         mutateSettings({ it.copy(backgroundSyncEnabled = enabled) }) {
-            if (enabled) DailySyncWorker.enable(getApplication())
-            else DailySyncWorker.cancel(getApplication())
+            if (enabled) HealthSyncWorker.enable(getApplication())
+            else HealthSyncWorker.cancel(getApplication())
         }
     }
 
@@ -465,7 +470,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun onBackgroundPermissionResult(granted: Set<String>) {
         val ok = HealthConnectManager.PERMISSION_READ_BACKGROUND in granted
         setBackgroundSyncEnabled(ok)
-        if (ok) showToast("Background sync on · checks once a day")
+        if (ok) showToast("Background sync on · checks every 30 minutes")
     }
 
     // ---- account -----------------------------------------------------------
@@ -660,7 +665,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             // The theme went back to SYSTEM with the settings; the launch-window
             // mirror has to follow, or the next cold start paints the old colour.
             ThemePrefs.write(getApplication(), ThemeChoice.SYSTEM)
-            DailySyncWorker.cancel(getApplication())
+            HealthSyncWorker.cancel(getApplication())
             Reminder.reschedule(getApplication())
             WidgetUpdater.updateAll(getApplication())
             dismissOverlay()

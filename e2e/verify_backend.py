@@ -8,8 +8,10 @@ Each step prints PASS/FAIL; a non-zero exit means the backend contract the app
 relies on does not hold.
 """
 
+import pathlib
 import sys
 import time
+import tomllib
 
 import supa
 
@@ -153,6 +155,46 @@ check("non-test addresses are refused", r.get("_status") == 400, str(r)[:160])
 
 r = supa.admin("generate_otp", type="recovery", email="someone.real@gmail.com")
 check("codes for non-test addresses cannot be minted", r.get("_status") == 400, str(r)[:160])
+
+# --- the mail the codes arrive in ----------------------------------------------
+# Everything above proves GoTrue mints a code. None of it proves the message the
+# user opens contains one, and for a long time it did not: the project was still on
+# GoTrue's stock templates, which print {{ .ConfirmationURL }} and nothing else, so
+# a new account got a link to site_url — the CLI's http://127.0.0.1:3000 placeholder
+# — while the app sat on the code panel waiting for six digits that were never sent.
+# The templates are committed, `supabase config push` proves the project is holding
+# these exact bytes, and this proves the bytes are right.
+ROOT = pathlib.Path(supa.ROOT)
+config = tomllib.loads((ROOT / "supabase" / "config.toml").read_text(encoding="utf-8"))
+auth = config["auth"]
+
+site = auth.get("site_url", "")
+check(
+    "site_url is not a loopback placeholder",
+    "127.0.0.1" not in site and "localhost" not in site,
+    site,
+)
+
+sample = supa.admin("generate_otp", type="recovery", email=OTHER).get("email_otp") or ""
+for kind in ("confirmation", "recovery", "email_change"):
+    template = auth["email"]["template"].get(kind, {})
+    path = template.get("content_path")
+    check(f"{kind} mail has a template of its own", bool(path), str(template))
+    if not path:
+        continue
+    body = (ROOT / path).read_text(encoding="utf-8")
+    check(f"{kind} mail carries the code", "{{ .Token }}" in body, path)
+    check(f"{kind} mail sends nobody to a link", "ConfirmationURL" not in body, path)
+    # What the reader actually receives, with the placeholders filled the way GoTrue
+    # fills them.
+    rendered = (
+        body.replace("{{ .Token }}", sample)
+        .replace("{{ .Email }}", EMAIL)
+        .replace("{{ .NewEmail }}", EMAIL2)
+    )
+    check(f"{kind} mail renders the six digits", sample in rendered and len(sample) == 6, sample)
+    check(f"{kind} mail leaves no placeholder unfilled", "{{" not in rendered, rendered[:120])
+    check(f"{kind} subject is the app's own", bool(template.get("subject")), str(template))
 
 # --- cleanup -------------------------------------------------------------------
 supa.admin("delete_user", email=OTHER)

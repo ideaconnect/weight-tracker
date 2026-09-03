@@ -17,3 +17,10 @@ secrets/
 website/_site/
 website/.jekyll-cache/
 website/.sass-cache/
+
+# Kotlin 2.x build-tool session files, written beside the build dir
+.kotlin/
+
+# Full-resolution widget renders the sizing matrix pulls off the device. The
+# contact sheet beside them keeps downscaled copies; these are the working ones.
+e2e/report/.raw/
